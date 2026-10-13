@@ -1,1 +1,21 @@
-spring.application.name=Charity
+server:
+  port: 8080 # 后端启动端口
+
+spring:
+  application:
+    name: charity
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 注意：这里的数据库名是 charity，时区必须加上，否则新版 MySQL 会报错
+    url: jdbc:mysql://localhost:3306/charity?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 控制台打印 SQL 语句，方便调试
+    map-underscore-to-camel-case: true # 开启驼峰命名转换（user_name -> userName）
+  global-config:
+    db-config:
+      id-type: auto # 主键默认使用数据库自增
