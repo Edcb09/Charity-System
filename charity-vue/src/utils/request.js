@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage} from "element-plus";
 import router from '@/router'
+import  {useUserStore}  from '@/stores/user';
 
 const service=axios.create(
     {
@@ -29,7 +30,8 @@ service.interceptors.response.use(
             ElMessage.error(res.msg||'系统错误')
             if (res.code==401)//未登录
             {
-                router.push('/login')
+                const userStore=useUserStore()
+                userStore.openLoginDialog()
             }
             return Promise.reject(new Error(res.msg||'Error'))
         }

@@ -16,14 +16,14 @@ const router = createRouter({
   ],
 })
 
-//路由守卫：未登录强制跳转登录页面
+//路由守卫：未登录强制跳转登录页面->修改登录为弹窗形式，本来的拦截已注释
 router.beforeEach((to,from,next)=>{
-  const token=localStorage.getItem('satoken')
-  if(to.path!=='/login'&&to.path!=='/register'&&!token){
-    next('/login')
-  }else{
+  //const token=localStorage.getItem('satoken')
+  //if(to.path!=='/login'&&to.path!=='/register'&&!token){
+  //  next('/login')
+  //}else{
     next()
-  }
+  //}
 })
 
 export default router

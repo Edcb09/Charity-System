@@ -29,4 +29,12 @@ public class Result<T> {
         r.setMsg(msg);
         return r;
     }
+
+    public static <T> Result<T> unauthorized()
+    {
+        Result<T> r=new Result<>();
+        r.setCode(401);
+        r.setMsg("未登录，请先登录");
+        return r;
+    }
 }

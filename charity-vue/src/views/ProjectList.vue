@@ -2,8 +2,8 @@
     <div class="project-list">
         <!--搜索与筛选栏-->
         <el-card class="search-bar">
-            <el-input v-model="keyword" placeholder="搜索慈善项目" style="width: 200px;margin-right: 10px;" />
-                <el-select v-model="projectType" placeholder="慈善项目类型" clearable style="width: 150px; margin-right: 10px;">
+            <el-input v-model="keyword" placeholder="搜索慈善项目" style="width: 200px;margin-right: 10px;" @keyup.enter="fetchData"/>
+                <el-select v-model="projectType" placeholder="慈善项目类型" clearable style="width: 150px; margin-right: 10px;" @change="fetchData">
                 <el-option label="助学" value="助学"/>
                 <el-option label="医疗" value="医疗"/>
                 <el-option label="救灾" value="救灾"/>
@@ -69,6 +69,7 @@ const calculatePercentage=(current,target)=>{
 
 //获取数据
 const fetchData =async()=>{
+    pageNum.value=1//每次搜索时都重置回第一页
     try{
         const res=await request.get('/project/list',{
             params:{
