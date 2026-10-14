@@ -21,7 +21,7 @@ export default defineConfig({
       '/api':{//拦截所有以/api开头的请求
         target:'http://localhost:8080',//转发给后端
         changeOrigin:true,
-        rewrite:(path)=>path.replace(/^\/api/,'')//去掉/api前缀
+        rewrite:path=>path.replace(/^\/api/,'')//去掉/api前缀
       }
     }
   }
