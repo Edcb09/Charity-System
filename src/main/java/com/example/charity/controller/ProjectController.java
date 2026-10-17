@@ -7,10 +7,7 @@ import com.example.charity.common.Result;
 import com.example.charity.entity.Project;
 import com.example.charity.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/project")
@@ -50,6 +47,17 @@ public class ProjectController {
 
         projectService.page(page,queryWrapper);
         return Result.success(page);
+    }
+
+    @GetMapping("/{id}")
+    public Result<Project> getDetail(@PathVariable Long id)
+    {
+        Project project=projectService.getById(id);
+        if(project==null)
+        {
+            return Result.error("项目不存在");
+        }
+        return Result.success(project);
     }
 
 }

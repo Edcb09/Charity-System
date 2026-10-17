@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Login from '@/views/Login.vue'
 import Layout from '@/views/Layout.vue'
 import ProjectList from '@/views/ProjectList.vue'
+import ProjectDetail from '@/views/ProjectDetail.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -11,6 +12,7 @@ const router = createRouter({
       component:Layout,
       children:[
         {path:'',name:'ProjectList',component:ProjectList}//默认展示项目列表
+        {path:'project/:id',name:'ProjectDetail',component:ProjectDetail}
       ]
     }
   ],
