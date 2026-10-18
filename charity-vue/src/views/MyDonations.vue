@@ -2,7 +2,11 @@
     <div style="max-width: 1000px;margin: 20px auto;">
         <el-page-header @back="$router.push('/')" content="我的捐款记录" style="margin-bottom: 20px;" />
         <el-table :data="tableData" style="width: 100%" script v-lodaing="loading">
-            <el-table-column prop="donateTime" label="捐款时间" width="180" />
+            <el-table-column prop="donateTime" label="捐款时间" width="180" >
+                <template #default="scope">
+                    <span>{{ scope.row.donateTime?scope.row.donateTime.split('T')[0]:'-' }}</span>
+                </template>
+            </el-table-column>
             <el-table-column prop="projectTitle" label="捐赠项目" />
             <el-table-column prop="amount" label="捐赠金额" width="120">
                 <template #default="scope">

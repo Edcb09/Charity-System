@@ -1,7 +1,7 @@
 <template>
     <el-container class="layout-container">
         <el-header class="header">
-            <div class="logo">慈善捐款平台</div>
+            <div class="logo" @click="$router.push('/')" style="cursor: pointer;">慈善捐款平台</div>
             <div class="user-info">
                 <!--未登录时显示登录按钮-->
                 <el-button v-if="!token" type="primary" size="default" @click="userStore.openLoginDialog()">登录 / 注册</el-button>
@@ -11,6 +11,7 @@
                 <el-button type="text" style="color:white;margin-right: 15px;" @click="$router.push('/my-donations')">我的捐赠</el-button>
                 <span>欢迎您，{{ username }}</span>
                 <el-button type="danger" size="small" @click="logout" style="margin-left:15px;">退出登录</el-button>
+                <el-button type="success" size="small" style="margin-right: 15px;" @click="$router.push('/create-project')">发起募捐</el-button>
             </template>
             </div>
         </el-header>
@@ -44,6 +45,8 @@ const logout=()=>{
     localStorage.removeItem('username')
     ElMessage.success('已退出登录')
     window.location.reload()
+    //强制刷新
+    window.location.href='/'
 }
 
 

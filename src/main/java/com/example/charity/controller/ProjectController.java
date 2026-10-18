@@ -1,7 +1,9 @@
 package com.example.charity.controller;
 
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaIgnore;
+import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.charity.common.Result;
@@ -9,6 +11,9 @@ import com.example.charity.entity.Project;
 import com.example.charity.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/project")
@@ -60,6 +65,21 @@ public class ProjectController {
             return Result.error("项目不存在");
         }
         return Result.success(project);
+    }
+
+    @SaCheckLogin
+    @PostMapping("/add")
+    public Result<String> addProject(@RequestBody Project project)
+    {
+        //获取当前登录用户的ID作为申请人
+        Long userId = StpUtil.getLoginIdAsLong();
+        project.setUserId(userId);
+        project.setCurrentAmount(BigDecimal.ZERO);
+        project.setStatus(1);//待审核
+        project.setCreateTime(LocalDateTime.now());
+
+        projectService.save(project);
+        return Result.success("项目提交成功，等待管理员审核");
     }
 
 }
