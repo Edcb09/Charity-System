@@ -11,8 +11,9 @@ const router = createRouter({
     {path:'/',
       component:Layout,
       children:[
-        {path:'',name:'ProjectList',component:ProjectList}//默认展示项目列表
-        {path:'project/:id',name:'ProjectDetail',component:ProjectDetail}
+      {path:'',name:'ProjectList',component:ProjectList},//默认展示项目列表
+      {path:'project/:id',name:'ProjectDetail',component:ProjectDetail},//项目详情
+      {path:'my-donations',name:"MyDonations",component:()=>import('@/views/MyDonations.vue')}//查看个人捐赠
       ]
     }
   ],

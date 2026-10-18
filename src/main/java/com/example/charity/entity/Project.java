@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("project")
 public class Project {
-    @TableId(type = IdType.AUTO)
+    @TableId(value = "project_id", type = IdType.AUTO)//加上vlaue="project_id"防止id不匹配
     private Long projectId;
     private Long userId;
     private String title;

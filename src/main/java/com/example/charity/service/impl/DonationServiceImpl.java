@@ -2,6 +2,7 @@ package com.example.charity.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.example.charity.entity.Donation;
@@ -49,23 +50,49 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
     @Transactional(rollbackFor = Exception.class)
     public void paySuccess(String orderNo)
     {
-        //1.查订单
+        //-------- Fail-Fast --------
+        //1.1 查订单
         Donation donation=this.getOne(new QueryWrapper<Donation>().eq("order_no",orderNo));
         if(donation==null||donation.getPayStatus()==1)
         {
-            throw new RuntimeException("订单无效或已支付");
+            throw new RuntimeException("订单无效");
+        }
+        if(donation.getPayStatus()==1)
+        {
+            throw new RuntimeException("该订单已支付，请勿重复操作！");
         }
 
-        //2.更新订单状态
+        //1.2 查项目
+        Project project=projectMapper.selectById(donation.getProjectId());
+        if(project==null)
+        {
+            throw new RuntimeException("支付失败：未找到对应项目，项目ID："+donation.getProjectId());
+        }
+
+        //1.3 校验项目状态
+        if(project.getStatus()!=2)
+        {
+            throw new RuntimeException("支付失败：该项目已结束募捐或不可捐赠");
+        }
+
+        //-------- Update --------
+        //2.1 更新订单状态
         donation.setPayStatus(1);
         donation.setDonateTime(LocalDateTime.now());
         this.updateById(donation);
 
-        //3.更新项目已筹集金额（原子累加）
-        UpdateWrapper<Project> wrapper=new UpdateWrapper<>();
-        wrapper.eq("id",donation.getProjectId())
+        //2.2 更新项目已筹集金额（原子累加）
+        LambdaUpdateWrapper<Project> wrapper=new LambdaUpdateWrapper<>();
+        wrapper.eq(Project::getProjectId,donation.getProjectId())
                 .setSql("current_amount=current_amount+"+donation.getAmount());
         projectMapper.update(null,wrapper);
+
+        //2.3 重新查询项目
+        project=projectMapper.selectById(donation.getProjectId());
+        if(project.getCurrentAmount().compareTo(project.getTargetAmount())>=0){
+            project.setStatus(3);
+            projectMapper.updateById(project);
+        }
 
     }
 }

@@ -1,6 +1,7 @@
 package com.example.charity.controller;
 
 
+import cn.dev33.satoken.annotation.SaIgnore;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.charity.common.Result;
@@ -49,6 +50,7 @@ public class ProjectController {
         return Result.success(page);
     }
 
+    @SaIgnore
     @GetMapping("/{id}")
     public Result<Project> getDetail(@PathVariable Long id)
     {

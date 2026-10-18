@@ -8,6 +8,7 @@
 
                 <!--已登录显示用户名和退出-->
                 <template v-else>
+                <el-button type="text" style="color:white;margin-right: 15px;" @click="$router.push('/my-donations')">我的捐赠</el-button>
                 <span>欢迎您，{{ username }}</span>
                 <el-button type="danger" size="small" @click="logout" style="margin-left:15px;">退出登录</el-button>
             </template>

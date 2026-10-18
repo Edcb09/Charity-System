@@ -1,5 +1,5 @@
 <template>
-    <div class="=deatail-container" v-if="project.projectId">
+    <div class="=detail-container" v-if="project.projectId">
         <el-card>
             <el-page-header @back="$router.push('/')" content="募捐详情" style="margin-bottom: 20px;" />
             <el-row :gutter="30">
@@ -11,7 +11,7 @@
                 <!--右侧核心信息-->
                 <el-col :span="14">
                     <h1>{{ project.title }}</h1>
-                    <p class="type-tag">项目类型：{{ ProjectList.projectType }}</p>
+                    <p class="type-tag">项目类型：{{ project.projectType }}</p>
 
                     <el-progress
                     :percentage="calculatePercentage"
@@ -58,7 +58,7 @@
             </div>
             <template #footer>
                 <el-button @click="showPayDialog = false">取消</el-button>
-                <el-button type="primary" @click="confirmPay" :loading="payLoading">请确认支付</el-button>
+                <el-button type="primary" @click="confirmPay" :loading="payLoading">支付</el-button>
             </template>
         </el-dialog>
     </div>
@@ -71,7 +71,6 @@ import {useRoute,useRouter} from 'vue-router'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus';
 import { useUserStore } from '@/stores/user';
-import { P } from 'vue-router/dist/index-u4XkZVDG.js';
 
 const route=useRoute()
 const router=useRouter()
@@ -94,7 +93,7 @@ const calculatePercentage=computed(()=>{
 //获取详情
 const fetchDetail =async()=>{
     try{
-        const res=await request.get('/project/${route.params.id}')
+        const res=await request.get(`/project/${route.params.id}`)
         project.value=res.data
     }catch(error){
         console.error(error)
@@ -117,7 +116,7 @@ const handleDonate=async()=>
     }
     
     try{
-        //1.创建捐款
+        //创建捐款
         const res=await request.post('/donation/create',{
             projectId: project.value.projectId,
             amount: donateAmount.value,
@@ -137,7 +136,7 @@ const confirmPay = async()=>
     payLoading.value=true
     try{
         //2.模拟支付成功
-        await request.post('donation/pay',{orderNo:currentOrderNo.value})
+        await request.post('/donation/pay',{orderNo:currentOrderNo.value})
         ElMessage.success('捐款成功！感谢您的爱心！')
         showPayDialog.value=false
         fetchDetail()//刷新页面数据
@@ -164,7 +163,7 @@ h1{font-size: 24px;margin-bottom: 10px;}
 .amount-box{display: flex;justify-content: space-between;background: #f8f9fa;padding: 15px;border-radius: 8px;margin-bottom: 20px;}
 .label{display: block;font-size: 14px;color: #666;margin-bottom: 5px;}
 .value{font-size: 20px;font-weight: bold;}
-.highlight{color:"#f56c6c"}
+.highlight{color:#f56c6c}
 .description{line-height: 1.8;color: #555;text-indent: 2em;}
 
 </style>
