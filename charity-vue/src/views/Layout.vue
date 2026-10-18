@@ -12,6 +12,13 @@
                 <span>欢迎您，{{ username }}</span>
                 <el-button type="danger" size="small" @click="logout" style="margin-left:15px;">退出登录</el-button>
                 <el-button type="success" size="small" style="margin-right: 15px;" @click="$router.push('/create-project')">发起募捐</el-button>
+                <el-button
+                v-if="role==='2'"
+                type="warning"
+                size="small"
+                style="margin-right: 15px;"
+                @click="$router.push('/admin')"
+                >后台审核</el-button>
             </template>
             </div>
         </el-header>
@@ -35,9 +42,11 @@ import Login from '@/views/Login.vue'
 const router = useRouter()
 const userStore =useUserStore()
 
+
 //动态获取token
 const token=computed(()=>localStorage.getItem('satoken'))
 const username=computed(()=>localStorage.getItem('username')||'游客')
+const role=computed(()=>localStorage.getItem('role'))
 
 
 const logout=()=>{

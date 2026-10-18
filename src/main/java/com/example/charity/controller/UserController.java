@@ -10,7 +10,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.time.LocalDateTime;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/user")
@@ -46,8 +48,31 @@ public class UserController {
     }
 
     //2.登录接口
+//    @PostMapping("/login")
+//    public Result<String> login(@RequestBody User user)
+//    {
+//        User dbUser=userService.getOne(new QueryWrapper<User>().eq("username",user.getUsername()));
+//        if(dbUser==null)
+//        {
+//            return Result.error("账号不存在");
+//        }
+//        //校验密码
+//        if(!passwordEncoder.matches(user.getPassword(),dbUser.getPassword()))
+//        {
+//            return Result.error("密码错误");
+//        }
+//        if (dbUser.getStatus()==1)
+//        {
+//            return Result.error("账号已被禁用");
+//        }
+//        //Sa-Token 登录，生成Token返回给前端
+//        StpUtil.login(dbUser.getUserId());
+//        return Result.success(StpUtil.getTokenValue());
+//    }
+
+    //修改登录接口返回类型,把role一起返回给前端
     @PostMapping("/login")
-    public Result<String> login(@RequestBody User user)
+    public Result<Map<String, Object>> login(@RequestBody User user)
     {
         User dbUser=userService.getOne(new QueryWrapper<User>().eq("username",user.getUsername()));
         if(dbUser==null)
@@ -65,6 +90,13 @@ public class UserController {
         }
         //Sa-Token 登录，生成Token返回给前端
         StpUtil.login(dbUser.getUserId());
-        return Result.success(StpUtil.getTokenValue());
+
+        //把Token和用户信息一起返回
+        Map<String,Object> map=new HashMap<>();
+        map.put("token",StpUtil.getTokenValue());
+        map.put("role",dbUser.getRole());
+        map.put("username",dbUser.getUsername());
+
+        return Result.success(map);
     }
 }

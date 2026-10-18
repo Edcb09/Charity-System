@@ -53,8 +53,9 @@ const handleLogin= async() =>{
 }
 try{
     const res=await request.post('/user/login',form)
-    localStorage.setItem('satoken',res.data)//存Token
-    localStorage.setItem('username',form.username)//存用户名
+    localStorage.setItem('satoken',res.data.token)//存Token
+    localStorage.setItem('username',res.data.username)//存用户名
+    localStorage.setItem('role',res.data.role)//存入角色
     ElMessage.success('登录成功');
     userStore.closeLoginDialog()
     router.push('/')//跳转首页
