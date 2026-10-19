@@ -47,9 +47,10 @@
                         <el-input v-model="form.description" type="textarea" :rows="5" placeholder="请输入项目描述..." />
                     </el-form-item>
 
-                <el-form-item>
-                    <el-button type="primary" @click="submitProject">提交审核</el-button>
-                </el-form-item>
+                    <el-form-item>
+                    <el-button @click="submitProject(0)">存为草稿</el-button>
+                    <el-button type="primary" @click="submitProject(1)">提交审核</el-button>
+                    </el-form-item>
                
             </el-form>
         </el-card>
@@ -59,24 +60,41 @@
 
 
 <script setup>
-import{reactive}from 'vue'
-import { useRouter } from 'vue-router';
+import{onMounted, reactive}from 'vue'
+import { useRoute, useRouter } from 'vue-router';
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus';
 
 const router=useRouter()
+const route=useRoute()
+
+const projectId=route.params.id
+const isEdit=!!projectId
+
 const form=reactive({
+    projectId:null,
     title:'',
     projectType:'',
     targetAmount:1000,
     endTime:'',
     coverImg:'',
     recipientInfo:'',
-    description:''
+    description:'',
+    status:0//默认为草稿
 })
 
+onMounted(async()=>{
+    if(isEdit){
+        try{
+            const res=await request.get(`/project/${projectId}`)
+            Object.assign(form,res.data)
+        }catch(e){
+            ElMessage.error('获取项目详情失败')
+        }
+    }
+})
 
-const submitProject=async()=>
+const submitProject=async(statusCode)=>
 {
     //校验是否登录
     const token=localStorage.getItem('satoken')
@@ -85,15 +103,29 @@ const submitProject=async()=>
         return
     }
 
-
-    if(!form.title||!form.projectType||!form.targetAmount||!form.endTime||!form.recipientInfo||!form.description){
-        return ElMessage.warning('请填写所有必填项')
+    // 存草稿时，只要求有标题即可；提交审核时，要求填满所有必填项
+    if (statusCode === 0 && !form.title) {
+        return ElMessage.warning('请至少填写项目标题后再保存草稿')
     }
 
+    if (statusCode === 1) {
+        if (!form.title || !form.projectType || !form.targetAmount || !form.endTime || !form.recipientInfo || !form.description) {
+        return ElMessage.warning('提交审核需填写所有必填项')
+        }  
+    }
+
+    form.status=statusCode
+
+
     try{
-        const res=await request.post('/project/add',form)
+        let res
+        if(isEdit){
+            res=await request.put('/project/update',form)
+        }else{
+            res=await request.post('/project/add',form)
+        }
         ElMessage.success(res.msg)
-        router.push('/')
+        router.push('/my-projects')
     }catch(error){
         console.error(error)
     }

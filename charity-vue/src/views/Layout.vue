@@ -8,13 +8,19 @@
 
                 <!--已登录显示用户名和退出-->
                 <template v-else>
-                <el-button type="text" style="color:white;margin-right: 15px;" @click="$router.push('/my-donations')">我的捐赠</el-button>
-                <el-badge :value="unreadCount" max="99" :hidden="unreadCount===0" style="margin-right: 15px;margin-top: 5px;">
+                <el-button v-if="role==='0'" type="text" style="color:white;margin-right: 15px;" @click="$router.push('/my-donations')">我的捐赠</el-button>
+                <el-button v-if="role === '1'" type="success" size="small" style="margin-right: 15px;" @click="$router.push('/create-project')">发起募捐</el-button>
+                <el-button v-if="role === '1'" type="info" size="small" style="margin-right: 15px;" @click="$router.push('/my-projects')">我的项目</el-button>
+
+                <el-badge 
+                :value="messageStore.unreadCount" 
+                :max="99"
+                :hidden="messageStore.unreadCount===0"
+                style="margin-right:15px;margin-top: 5px;">
                 <el-button type="text" style="color:white;" @click="$router.push('/messages')">消息通知</el-button>
                 </el-badge>
-                <span>欢迎您，{{ username }}</span>
-                <el-button type="success" size="small" style="margin-right: 15px;" @click="$router.push('/create-project')">发起募捐</el-button>
-                <el-button type="info" size="small" style="margin-right: 15px;" @click="$router.push('/my-projects')">我的项目</el-button>
+
+                <span style="margin-right: 15px;">欢迎您，{{ username }}</span>
                 <el-button type="danger" size="small" @click="logout" style="margin-left:15px;">退出登录</el-button>
                 
                 <!--后台审核入口-->
@@ -51,12 +57,14 @@ import request from '@/utils/request'
 const router = useRouter()
 const userStore =useUserStore()
 
-const unreadCount=ref(0)
+//全局管理
+import { useMessageStore } from '@/stores/message'
+const messageStore=useMessageStore()
 
 //动态获取token
 const token=computed(()=>localStorage.getItem('satoken'))
 const username=computed(()=>localStorage.getItem('username')||'游客')
-const role=computed(()=>localStorage.getItem('role'))
+const role=computed(()=>localStorage.getItem('role')||'0')
 
 const adminPendingTotal=ref(0)
 
@@ -71,18 +79,18 @@ const logout=()=>{
 }
 
 //获取未读消息数量
-const fetchUnreadCount=async()=>{
-    if(!localStorage.getItem('satoken'))return
-    try{
-        const res=await request.get('/message/unreadCount')
-        unreadCount.value=res.data
-    }catch(e)
-    {
-        console.error(e)
-    }
-}
+// const fetchUnreadCount=async()=>{
+//     if(!localStorage.getItem('satoken'))return
+//     try{
+//         const res=await request.get('/message/unreadCount')
+//         unreadCount.value=res.data
+//     }catch(e)
+//     {
+//         console.error(e)
+//     }
+// }
 
-//获取哦管理员代办数量
+//获取管理员代办数量
 const fetchAdminPendingCount=async()=>{
     if(localStorage.getItem('role')!=='2'||!localStorage.getItem('satoken'))return
     try{
@@ -95,7 +103,7 @@ const fetchAdminPendingCount=async()=>{
 }
 
 onMounted(()=>{
-    fetchUnreadCount()
+    messageStore.fetchUnreadCount()
     fetchAdminPendingCount()
 })
 

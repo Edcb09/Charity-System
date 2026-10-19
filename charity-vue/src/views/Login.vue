@@ -25,7 +25,7 @@
             </el-form>
 
             <div class="register-link">
-                还没有账号？<router-link to="/register">去注册</router-link>
+                还没有账号？<el-button type="primary" link @click="goToRegister">去注册</el-button>
             </div>
 
     </el-dialog>
@@ -65,6 +65,12 @@ try{
     ElMessage.error('登录失败，请检查账号和密码');
 }
 }
+
+const goToRegister=()=>{
+    userStore.closeLoginDialog()
+    router.push('/register')
+}
+
 
 //关闭弹窗时重置表单
 const resetForm=()=>{

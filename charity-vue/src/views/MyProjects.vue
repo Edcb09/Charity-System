@@ -31,6 +31,13 @@
                         @click="showRejectReason(scope.row.rejectReason)"
                         >查看驳回理由
                     </el-button>
+                    <!--继续编辑按钮-->
+                    <el-button
+                    v-if="scope.row.status===0||scope.row.status===4"
+                    type="warning"
+                    size="small"
+                    @click="$router.push(`/create-project/${scope.row.projectId}`)"
+                    >继续编辑</el-button>
                     <!--可以去详情页-->
                     <el-button type="primary" size="small" @click="$router.push(`project/${scope.row.projectId}`)">
                         查看详情

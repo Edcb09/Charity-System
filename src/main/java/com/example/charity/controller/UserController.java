@@ -32,15 +32,44 @@ public class UserController {
     @PostMapping("/register")
     public Result<String> register(@RequestBody User user)
     {
+        //基础非空校验
+        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+            return Result.error("账号不能为空");
+        }
+        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+            return Result.error("密码不能为空");
+        }
+
+        //长度校验（防止超长导致数据库报错）
+        if (user.getUsername().length() < 3 || user.getUsername().length() > 20) {
+            return Result.error("账号长度必须在 3-20 个字符之间");
+        }
+        if (user.getPassword().length() < 6 || user.getPassword().length() > 20) {
+            return Result.error("密码长度必须在 6-20 个字符之间");
+        }
+
+        //手机号正则校验（如果填了手机号才校验）
+        if (user.getPhone() != null && !user.getPhone().trim().isEmpty()) {
+            String phoneRegex = "^1[3-9]\\d{9}$";
+            if (!user.getPhone().matches(phoneRegex)) {
+                return Result.error("手机号格式不正确");
+            }
+        }
+
         //检查账号是否已存在
         long count =userService.count(new QueryWrapper<User>().eq("username",user.getUsername()));
         if(count>0)
         {
             return Result.error("账号已存在");
         }
+
+        //安全校验，只能注册捐赠人和受助人
+        if(user.getRole()==null||(user.getRole()!=0&&user.getRole()!=1)){
+            user.setRole(0);
+        }
+
         //密码加密
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRole(0);//默认捐赠人（普通用户）
         user.setStatus(0);//默认账号状态正常
         user.setCreateTime(LocalDateTime.now());
         userService.save(user);

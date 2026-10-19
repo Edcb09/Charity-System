@@ -1,6 +1,7 @@
 package com.example.charity.controller;
 
 
+import ch.qos.logback.core.pattern.util.RegularEscapeUtil;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaIgnore;
 import cn.dev33.satoken.stp.StpUtil;
@@ -84,20 +85,53 @@ public class ProjectController {
         return Result.success(project);
     }
 
-    //申请募捐项目
+    //1.申请募捐项目，存草稿
     @SaCheckLogin
     @PostMapping("/add")
     public Result<String> addProject(@RequestBody Project project)
     {
         //获取当前登录用户的ID作为申请人
         Long userId = StpUtil.getLoginIdAsLong();
+        User currentUser=userService.getById(userId);
+        if(currentUser.getRole()!=1)
+        {
+            return Result.error("普通捐赠人无权发起项目，请联系管理员更改角色");
+        }
         project.setUserId(userId);
         project.setCurrentAmount(BigDecimal.ZERO);
-        project.setStatus(1);//待审核
-        project.setCreateTime(LocalDateTime.now());
 
+        if(project.getStatus()==null){
+        project.setStatus(1);//待审核
+        }
+
+        project.setCreateTime(LocalDateTime.now());
         projectService.save(project);
-        return Result.success("项目提交成功，等待管理员审核");
+        return Result.success(project.getStatus()==0?"草稿保存成功":"项目提交成功，等待管理员审核");
+    }
+
+    // 2. 修改项目（用于编辑草稿或驳回后重新提交）
+    @PutMapping("/update")
+    public Result<String> updateProject(@RequestBody Project project) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        Project oldProject = projectService.getById(project.getProjectId());
+
+        if (oldProject == null) return Result.error("项目不存在");
+        if (!oldProject.getUserId().equals(userId)) return Result.error("无权修改该项目");
+
+        // 只有草稿(0) 或 被驳回(4) 的项目才能修改
+        if (oldProject.getStatus() != 0 && oldProject.getStatus() != 4) {
+            return Result.error("只有草稿或被驳回的项目才能修改");
+        }
+
+        // 防止前端恶意篡改用户ID、已筹金额和时间
+        project.setUserId(userId);
+        project.setCurrentAmount(oldProject.getCurrentAmount());
+        project.setCreateTime(oldProject.getCreateTime());
+
+        // 如果修改后提交审核，状态会变成1；如果还是存草稿，状态就是0
+        projectService.updateById(project);
+
+        return Result.success(project.getStatus() == 0 ? "草稿更新成功" : "项目重新提交成功，等待审核");
     }
 
     //获取审核项目列表

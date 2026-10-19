@@ -6,8 +6,10 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.charity.common.Result;
 import com.example.charity.entity.Comment;
+import com.example.charity.entity.Project;
 import com.example.charity.entity.User;
 import com.example.charity.service.CommentService;
+import com.example.charity.service.ProjectService;
 import com.example.charity.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -22,6 +24,8 @@ public class CommentController {
     private CommentService commentService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private ProjectService projectService;
 
     //获取某个项目的留言列表（游客可见，加@SaIgnore）
     @SaIgnore
@@ -60,6 +64,16 @@ public class CommentController {
         if(comment.getContent().length()>500)
         {
             return Result.error("留言内容不能超过500字");
+        }
+
+        //只有2、3、5状态的项目才可以留言
+        Project project=projectService.getById(comment.getProjectId());
+        if(project==null){
+            return Result.error("项目不存在");
+        }
+        if (project.getStatus()==1||project.getStatus()==4)
+        {
+            return Result.error("项目不存在");
         }
 
         //获取当前登录用户

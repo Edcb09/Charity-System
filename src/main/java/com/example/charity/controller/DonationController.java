@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.charity.common.Result;
 import com.example.charity.entity.Donation;
 import com.example.charity.entity.Project;
+import com.example.charity.entity.User;
 import com.example.charity.mapper.ProjectMapper;
 import com.example.charity.service.DonationService;
+import com.example.charity.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +31,8 @@ public class DonationController {
     private DonationService donationService;
     @Autowired
     private ProjectMapper projectMapper;
+    @Autowired
+    private UserService userService;
 
     //创建捐款订单
     @PostMapping("/create")
@@ -36,6 +40,10 @@ public class DonationController {
     {
         //获取当前登录用户ID
         Long userId= StpUtil.getLoginIdAsLong();
+        User currentUser=userService.getById(userId);
+        if(currentUser.getRole()!=0){
+            return Result.error("只有普通用户才能进行捐款");
+        }
         Long projectId=Long.valueOf(params.get("projectId").toString());
         BigDecimal amount=new BigDecimal(params.get("amount").toString());
         boolean isAnonymous=Boolean.parseBoolean(params.get("isAnonymous").toString());
@@ -54,7 +62,7 @@ public class DonationController {
     }
 
     //分页查询“我”的捐款记录
-    @GetMapping("myList")
+    @GetMapping("/myList")
     public Result<com.baomidou.mybatisplus.extension.plugins.pagination.Page<Donation>> myList(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize)

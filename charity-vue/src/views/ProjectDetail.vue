@@ -1,5 +1,5 @@
 <template>
-    <div class="=detail-container" v-if="project.projectId">
+    <div class="detail-container" v-if="project.projectId">
         <el-card>
             <el-page-header @back="$router.push('/')" content="募捐详情" style="margin-bottom: 20px;" />
             <el-row :gutter="30">
@@ -14,6 +14,8 @@
                 <el-col :xs="24" :sm="14">
                     <h1>{{ project.title }}</h1>
                     <p class="type-tag">项目类型：{{ project.projectType }}</p>
+                    <!-- 举报按钮 -->
+                    <el-button type="danger" plain size="small" @click="openViolationDialog">举报</el-button>
 
                     <el-progress
                     :percentage="calculatePercentage"
@@ -82,28 +84,28 @@
         v-if="currentUsername===project.applicantName&&project.status===3"
         type="primary"
         style="margin-top: 15px;"
-        @click="showReportDialog=true"
+        @click="showFundReportDialog=true"
         >提交资金使用报告及证明材料</el-button>
     </el-card>
 
     <!--提交资金弹窗-->
-    <el-dialog v-model="showReportDialog" title="提交资金使用报告" width="500px">
+    <el-dialog v-model="showFundReportDialog" title="提交资金使用报告" width="500px">
         <el-form label-width="100px">
             <el-form-item label="支出金额">
-                <el-input-number v-model="reportForm.reportAmount" :min="1"/>
+                <el-input-number v-model="fundreportForm.reportAmount" :min="1"/>
             </el-form-item>
             <el-form-item label="支出说明">
-                <el-input v-model="reportForm.content" type="textarea" :rows="3" />
+                <el-input v-model="fundreportForm.content" type="textarea" :rows="3" />
             </el-form-item>
         </el-form>
         <template #footer>
-            <el-button @click="showReportDialog=false">取消</el-button>
+            <el-button @click="showFundReportDialog=false">取消</el-button>
             <el-button type="primary" @click="submitFundReport">提交</el-button>
         </template>
     </el-dialog>
 
     <!--留言板区域-->
-    <el-card style="margin-top: 20px;">
+    <el-card style="margin-top: 20px;" v-if="project.status === 2 || project.status === 3 || project.status === 5">
         <el-divider content-position="left">留言板({{ commentList.length }})</el-divider>
 
         <!--发布留言-->
@@ -111,7 +113,7 @@
             <el-input
             v-model="newComment"
             type="textarea"
-            :row="3"
+            :rows="3"
             placeholder="留下您的鼓励与支持..."
             maxlength="500"
             show-word-limit />
@@ -132,6 +134,24 @@
         </div>
     </el-card>
 
+    <!-- 举报弹窗 -->
+    <el-dialog v-model="showViolationDialog" title="举报违规项目" width="400px">
+      <el-form label-width="80px">
+        <el-form-item label="举报理由" required>
+          <el-select v-model="violationForm.reason" placeholder="请选择或输入理由" style="width: 100%;" filterable allow-create>
+            <el-option label="涉嫌诈骗" value="涉嫌诈骗" />
+            <el-option label="信息虚假" value="信息虚假" />
+            <el-option label="涉及色情暴力" value="涉及色情暴力" />
+            <el-option label="其他" value="其他" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showViolationDialog = false">取消</el-button>
+        <el-button type="danger" @click="submitReport">确认举报</el-button>
+      </template>
+    </el-dialog>
+
 </template>
 
 <script setup>
@@ -140,10 +160,12 @@ import {useRoute,useRouter} from 'vue-router'
 import request from '@/utils/request'
 import { ElMessage, valueEquals } from 'element-plus';
 import { useUserStore } from '@/stores/user';
+import { useMessageStore } from '@/stores/message';
 
 const route=useRoute()
 const router=useRouter()
 const userStore=useUserStore()
+const messageStore=useMessageStore()
 
 const project=ref({})
 const donateAmount =ref(10)
@@ -153,8 +175,10 @@ const payLoading=ref(false)
 const currentOrderNo=ref('')
 
 const fundReportList=ref([])//公示列表
-const showReportDialog=ref(false)//提交弹窗
-const reportForm=reactive({
+const showFundReportDialog=ref(false)//提交弹窗
+
+
+const fundreportForm=reactive({
     projectId:null,
     reportAmount:100,
     content:''
@@ -221,6 +245,7 @@ const confirmPay = async()=>
         ElMessage.success('捐款成功！感谢您的爱心！')
         showPayDialog.value=false
         fetchDetail()//刷新页面数据
+        messageStore.fetchUnreadCount()
     }catch(error)
     {
         console.error(error)
@@ -228,12 +253,6 @@ const confirmPay = async()=>
         payLoading.value=false
     }
 }
-
-onMounted(()=>{
-    fetchDetail()
-    fetchComments()//加载留言
-    fetchFundReports()
-})
 
 
 //获取留言
@@ -326,23 +345,23 @@ const fetchFundReports =async()=>
 const submitFundReport =async()=>
 {
     //基础校验
-    if(!reportForm.reportAmount||reportForm.reportAmount<=0){
+    if(!fundreportForm.reportAmount||fundreportForm.reportAmount<=0){
         return ElMessage.warning('请输入正确的支出金额')
     }
-    if(!reportForm.content.trim()){
+    if(!fundreportForm.content.trim()){
         return ElMessage.warning('请填写资金使用说明')
     }
 
     try{
-        reportForm.projectId=project.value.projectId
+        fundreportForm.projectId=project.value.projectId
 
-        await request.post('/fund-report/add',reportForm)
+        await request.post('/fund-report/add',fundreportForm)
         ElMessage.success('报告提交成功，等待管理员审核')
 
         //关闭弹窗，清空表单，并刷新列表
-        showReportDialog.value=false
-        reportForm.reportAmount=100
-        reportForm.content=''
+        showFundReportDialog.value=false
+        fundreportForm.reportAmount=100
+        fundreportForm.content=''
         fetchFundReports()
     }catch(e)
     {
@@ -350,6 +369,48 @@ const submitFundReport =async()=>
     }
 }
 
+
+
+//举报模块
+const showViolationDialog = ref(false) 
+const violationForm = reactive({ reason: '' }) 
+
+// 打开举报弹窗
+const openViolationDialog = () => {
+  if (!localStorage.getItem('satoken')) {
+    ElMessage.warning('请先登录后再举报')
+    userStore.openLoginDialog()
+    return
+  }
+  showViolationDialog.value = true 
+}
+
+// 提交举报方法
+const submitReport = async () => {
+  if (!violationForm.reason) return ElMessage.warning('请选择或输入举报理由')
+  
+  try {
+    await request.post('/report/add', {
+      projectId: project.value.projectId,
+      reason: violationForm.reason
+    })
+    ElMessage.success('举报提交成功，管理员会尽快处理')
+    
+    showViolationDialog.value = false 
+    violationForm.reason = '' 
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+
+
+
+onMounted(()=>{
+    fetchDetail()
+    fetchComments()//加载留言
+    fetchFundReports()
+})
 </script>
 
 <style scoped>
