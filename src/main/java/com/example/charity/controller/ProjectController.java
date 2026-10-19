@@ -7,8 +7,10 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.charity.common.Result;
+import com.example.charity.entity.Message;
 import com.example.charity.entity.Project;
 import com.example.charity.entity.User;
+import com.example.charity.service.MessageService;
 import com.example.charity.service.ProjectService;
 import com.example.charity.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,8 @@ public class ProjectController {
     private ProjectService projectService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private MessageService messageService;
 
     //查询项目列表（可分页、搜索、筛选）
     @GetMapping("/list")
@@ -147,6 +151,22 @@ public class ProjectController {
         }
 
         projectService.updateById(project);
+
+        //发送审核结果通知
+        Message msg=new Message();
+        msg.setReceiveUserId(project.getUserId());
+        if(status==2)
+        {
+            msg.setContent("您发起的项目【"+project.getTitle()+"】已通过审核，募捐项目已启动。");
+        }else{
+            msg.setContent("很遗憾，您发起的项目【"+project.getTitle()+"】未通过审核。理由："+rejectReason);
+        }
+        msg.setType(1);
+        msg.setLinkId(projectId);
+        msg.setIsRead(0);
+        msg.setCreateTime(LocalDateTime.now());
+        messageService.save(msg);
+
         return Result.success("审核操作成功");
     }
 
