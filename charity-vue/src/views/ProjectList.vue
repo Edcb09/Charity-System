@@ -17,8 +17,25 @@
                 <el-card class="project-card" :body-style="{padding:'0px'}" shadow="hover">
                     <img :src="item.coverImg || 'https://via.placeholder.com/300x150'" class="cover-img" />
                     <div style="padding: 14px;">
-                        <h3 style="white-space: nowrap;overflow:hidden;text-overflow: ellipsis; margin-bottom: 10px;" :title="item.title">{{ item.title }}</h3>
-                        <p style="color: #666;font-size: 13px;">类型：{{ item.projectType }}</p>
+
+                        <!-- <h3 style="white-space: nowrap;overflow:hidden;text-overflow: ellipsis; margin-bottom: 10px;" :title="item.title">{{ item.title }}</h3>
+                        <p style="color: #666;font-size: 13px;">类型：{{ item.projectType }}</p> -->
+
+                        <!--增加状态标签和动态按钮-->
+                        <div style="display:flex;justify-content: space-between;align-items: center;">
+                            <h3 style="margin:0;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">{{ item.title }}</h3>
+                        
+                        <el-tag v-if="item.status===2" type="success" effect="dark" size="small">
+                            募捐中
+                        </el-tag>
+                        <el-tag v-else-if="item.status===3" type="info" effect="plain" size="small">已结束</el-tag>
+                        <el-tag v-else-if="item.status===5" type="warning" effect="plain" size="small">已归档</el-tag>
+
+                        </div>
+                        <p style="color:#666;font-size:13px;margin-top: 8px;">类型：{{ item.projectType }}</p>
+                    
+
+
                         <el-progress :percentage="calculatePercentage(item.currentAmount,item.targetAmount)" />
                         <div style="margin-top: 10px; font-size: 13px; color:#666">
                             <div style="margin-bottom: 5px;">
@@ -28,7 +45,9 @@
                                 目标金额：<span style="color: #409eff;font-weight: bold;">￥{{ item.targetAmount }}</span>
                             </div>
                         </div>
-                        <el-button type="primary" size="small" style="width: 100%;margin-top: 15px;" @click="goDetail(item.projectId)">查看详情</el-button>
+                        <el-button 
+                        :type="item.status===2?'primary':'info'"
+                         size="small" style="width: 100%;margin-top: 15px;" @click="goDetail(item.projectId)">{{  item.status===2?'查看详情':'查看公示结果'}}</el-button>
                     </div>
                 </el-card>
             </el-col>

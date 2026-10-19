@@ -39,8 +39,8 @@ public class ProjectController {
         Page<Project> page=new Page<>(pageNum,pageSize);
         QueryWrapper<Project> queryWrapper=new QueryWrapper<>();
 
-        //普通用户只能看到“2 募捐中”的项目
-        queryWrapper.eq("status",2);
+        //普通用户只能看到“2 募捐中”+"3 募捐结束"+"5 已归档"的项目
+        queryWrapper.in("status",2,3,5);
 
         //模糊搜索标题
         if(keyword!=null&&!keyword.isEmpty())
@@ -70,6 +70,12 @@ public class ProjectController {
         if(project==null)
         {
             return Result.error("项目不存在");
+        }
+
+        //新增：查询申请人的用户名，返回给前端
+        User applicant =userService.getById(project.getUserId());
+        if(applicant!=null){
+            project.setApplicantName(applicant.getUsername());
         }
         return Result.success(project);
     }
@@ -142,6 +148,15 @@ public class ProjectController {
 
         projectService.updateById(project);
         return Result.success("审核操作成功");
+    }
+
+    @GetMapping("/my")
+    public Result<List<Project>> myProjects()
+    {
+        Long userId=StpUtil.getLoginIdAsLong();
+        QueryWrapper<Project> wrapper=new QueryWrapper<>();
+        wrapper.eq("user_id",userId).orderByDesc("create_time");
+        return Result.success(projectService.list(wrapper));
     }
 
 }

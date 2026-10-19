@@ -10,8 +10,10 @@
                 <template v-else>
                 <el-button type="text" style="color:white;margin-right: 15px;" @click="$router.push('/my-donations')">我的捐赠</el-button>
                 <span>欢迎您，{{ username }}</span>
-                <el-button type="danger" size="small" @click="logout" style="margin-left:15px;">退出登录</el-button>
                 <el-button type="success" size="small" style="margin-right: 15px;" @click="$router.push('/create-project')">发起募捐</el-button>
+                <el-button type="info" size="small" style="margin-right: 15px;" @click="$router.push('/my-projects')">我的项目</el-button>
+                <el-button type="danger" size="small" @click="logout" style="margin-left:15px;">退出登录</el-button>
+                
                 <el-button
                 v-if="role==='2'"
                 type="warning"

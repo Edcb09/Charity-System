@@ -15,7 +15,8 @@ const router = createRouter({
       {path:'project/:id',name:'ProjectDetail',component:ProjectDetail},//项目详情
       {path:'my-donations',name:"MyDonations",component:()=>import('@/views/MyDonations.vue')},//查看个人捐赠
       {path:'create-project',name:'CreateProject',component:()=>import('@/views/CreateProject.vue')},//申请项目
-      {path:'admin',name:'Admin',component:()=>import('@/views/Admin.vue')}
+      {path:'admin',name:'Admin',component:()=>import('@/views/Admin.vue')},//管理员审核页面
+      {path:'my-projects',name:'MyProjects',component:()=>import('@/views/MyProjects.vue')}
       ]
     }
   ],

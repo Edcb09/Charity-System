@@ -4,12 +4,14 @@
             <el-page-header @back="$router.push('/')" content="募捐详情" style="margin-bottom: 20px;" />
             <el-row :gutter="30">
                 <!--左侧图片与信息-->
-                <el-col :span="10">
-                <img :src="project.coverImg || 'https://via.placeholder.com/500x300' "class="detail-img" />
+                <el-col :xs="24" :sm="10" style="overflow: hidden;">
+                <img :src="project.coverImg || 'https://via.placeholder.com/500x300' "
+                @error="(e)=>e.target.src='https://via.placeholder.com/500x300?text=No+Image'"
+                "class="detail-img" />
                 </el-col>
 
                 <!--右侧核心信息-->
-                <el-col :span="14">
+                <el-col :xs="24" :sm="14">
                     <h1>{{ project.title }}</h1>
                     <p class="type-tag">项目类型：{{ project.projectType }}</p>
 
@@ -30,8 +32,8 @@
                         </div>
                     </div>
 
+                    <template v-if="project.status===2">
                     <el-divider />
-
                     <div class="action-box">
                         <el-input-number v-model="donateAmount" :min="1" :max="999999" label="捐款金额" />
                         <el-checkbox v-model="isAnonymous" style="margin-left: 20px;">匿名捐款</el-checkbox>
@@ -39,6 +41,7 @@
                             立即捐款
                         </el-button>
                     </div>
+                </template>
                 </el-col>
             </el-row>
 
@@ -62,6 +65,42 @@
             </template>
         </el-dialog>
     </div>
+
+
+    <!--资金公示区域-->
+    <el-card style="margin-top: 20px;" v-if="project.status === 3||project.status===5">
+        <el-divider content-position="left">资金使用公示</el-divider>
+        <el-empty v-if="fundReportList.length===0" description="暂无资金公示记录" />
+        <div v-for="item in fundReportList" :key="item.reportId" class="fund-item">
+            <h4>支出金额：<span style="color:#f56c6c">￥{{ item.reportAmount }}</span></h4>
+            <p>使用说明：{{ item.content }}</p>
+            <p class="time">公示时间：{{ item.createTime.replace('T',' ') }}</p>
+        </div>
+
+        <!--申请人提交表单入口（仅项目申请人可见）-->
+        <el-button
+        v-if="currentUsername===project.applicantName&&project.status===3"
+        type="primary"
+        style="margin-top: 15px;"
+        @click="showReportDialog=true"
+        >提交资金使用报告及证明材料</el-button>
+    </el-card>
+
+    <!--提交资金弹窗-->
+    <el-dialog v-model="showReportDialog" title="提交资金使用报告" width="500px">
+        <el-form label-width="100px">
+            <el-form-item label="支出金额">
+                <el-input-number v-model="reportForm.reportAmount" :min="1"/>
+            </el-form-item>
+            <el-form-item label="支出说明">
+                <el-input v-model="reportForm.content" type="textarea" :rows="3" />
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <el-button @click="showReportDialog=false">取消</el-button>
+            <el-button type="primary" @click="submitFundReport">提交</el-button>
+        </template>
+    </el-dialog>
 
     <!--留言板区域-->
     <el-card style="margin-top: 20px;">
@@ -96,10 +135,10 @@
 </template>
 
 <script setup>
-import {ref,onMounted,computed} from 'vue'
+import {ref,onMounted,computed,reactive} from 'vue'
 import {useRoute,useRouter} from 'vue-router'
 import request from '@/utils/request'
-import { ElMessage } from 'element-plus';
+import { ElMessage, valueEquals } from 'element-plus';
 import { useUserStore } from '@/stores/user';
 
 const route=useRoute()
@@ -112,6 +151,15 @@ const isAnonymous =ref(false)
 const showPayDialog=ref(false)
 const payLoading=ref(false)
 const currentOrderNo=ref('')
+
+const fundReportList=ref([])//公示列表
+const showReportDialog=ref(false)//提交弹窗
+const reportForm=reactive({
+    projectId:null,
+    reportAmount:100,
+    content:''
+})
+const currentUsername=ref(localStorage.getItem('username') || '')
 
 const newComment=ref('')
 const commentList=ref([])
@@ -184,6 +232,7 @@ const confirmPay = async()=>
 onMounted(()=>{
     fetchDetail()
     fetchComments()//加载留言
+    fetchFundReports()
 })
 
 
@@ -261,11 +310,56 @@ const formatCommentTime=(timeStr)=>{
     }
 }
 
+//获取项目的资金公示列表
+const fetchFundReports =async()=>
+{
+    try{
+        const res=await request.get(`/fund-report/list/${route.params.id}`)
+        fundReportList.value=res.data
+    }catch(e)
+    {
+        console.error("获取资金公示资料失败",e)
+    }
+}
+
+//提交资金使用报告
+const submitFundReport =async()=>
+{
+    //基础校验
+    if(!reportForm.reportAmount||reportForm.reportAmount<=0){
+        return ElMessage.warning('请输入正确的支出金额')
+    }
+    if(!reportForm.content.trim()){
+        return ElMessage.warning('请填写资金使用说明')
+    }
+
+    try{
+        reportForm.projectId=project.value.projectId
+
+        await request.post('/fund-report/add',reportForm)
+        ElMessage.success('报告提交成功，等待管理员审核')
+
+        //关闭弹窗，清空表单，并刷新列表
+        showReportDialog.value=false
+        reportForm.reportAmount=100
+        reportForm.content=''
+        fetchFundReports()
+    }catch(e)
+    {
+        console.error("提交资金报告失败",e)
+    }
+}
+
 </script>
 
 <style scoped>
 .detail-container{max-width: 1000px;margin: 20px auto;}
-.detail-img{width: 100%;border-radius: 8px;object-fit: cover;}
+.detail-img{
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    object-fit: cover;}
 h1{font-size: 24px;margin-bottom: 10px;}
 .type-tag{color: #909299;font-size: 14px;background: #f4f4f5;display: inline-block;padding: 2px 8px;border-radius: 4px;}
 .amount-box{display: flex;justify-content: space-between;background: #f8f9fa;padding: 15px;border-radius: 8px;margin-bottom: 20px;}
