@@ -19,7 +19,8 @@ const router = createRouter({
       {path:'create-project/:id?',name:'CreateProject',component:()=>import('@/views/CreateProject.vue')},//申请项目
       {path:'admin',name:'Admin',component:()=>import('@/views/Admin.vue')},//管理员审核页面
       {path:'my-projects',name:'MyProjects',component:()=>import('@/views/MyProjects.vue')},//“我”的项目页面
-      {path:'messages',name:'Messages',component:()=>import('@/views/Messages.vue')}//消息通知页面
+      {path:'messages',name:'Messages',component:()=>import('@/views/Messages.vue')},//消息通知页面
+      { path: 'profile', name: 'Profile', component: () => import('@/views/Profile.vue') }//个人中心
       ]
     }
   ],

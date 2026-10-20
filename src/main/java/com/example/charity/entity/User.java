@@ -18,5 +18,7 @@ public class User {
     private Integer role;
     private LocalDateTime createTime;
     private Integer status;
+    private String avatar;
+    private String email;
 
 }

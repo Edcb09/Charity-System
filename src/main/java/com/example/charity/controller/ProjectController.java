@@ -44,8 +44,8 @@ public class ProjectController {
         Page<Project> page=new Page<>(pageNum,pageSize);
         QueryWrapper<Project> queryWrapper=new QueryWrapper<>();
 
-        //普通用户只能看到“2 募捐中”+"3 募捐结束"+"5 已归档"的项目
-        queryWrapper.in("status",2,3,5);
+        //普通用户只能看到“2 募捐中”+"3 募捐结束"+"5 已归档"+"6 归档待审核"的项目
+        queryWrapper.in("status",2,3,5,6);
 
         //模糊搜索标题
         if(keyword!=null&&!keyword.isEmpty())
@@ -211,6 +211,94 @@ public class ProjectController {
         QueryWrapper<Project> wrapper=new QueryWrapper<>();
         wrapper.eq("user_id",userId).orderByDesc("create_time");
         return Result.success(projectService.list(wrapper));
+    }
+
+
+    // ================= 项目归档相关接口 =================
+
+    // 1. 申请人申请结项 -> 状态变为 6
+    @PostMapping("/applyFinish/{id}")
+    public Result<String> applyFinish(@PathVariable Long id) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        Project project = projectService.getById(id);
+
+        if (project == null) return Result.error("项目不存在");
+        if (!project.getUserId().equals(userId)) return Result.error("您无权操作该项目");
+        if (project.getStatus() != 3) return Result.error("当前状态无法申请结项");
+
+        // 状态从 3 变为 6
+        project.setStatus(6);
+        projectService.updateById(project);
+
+        // 发消息给管理员...
+        List<User> admins = userService.list(new QueryWrapper<User>().eq("role", 2));
+        for (User admin : admins) {
+            Message msg = new Message();
+            msg.setReceiveUserId(admin.getUserId());
+            msg.setContent("申请人申请将项目【" + project.getTitle() + "】结项归档，请前往后台审核。");
+            msg.setType(1);
+            msg.setLinkId(project.getProjectId());
+            msg.setIsRead(0);
+            msg.setCreateTime(java.time.LocalDateTime.now());
+            messageService.save(msg);
+        }
+        return Result.success("结项申请已提交，等待管理员审核");
+    }
+
+    // 2. 管理员获取待归档(状态6)的项目列表
+    @GetMapping("/admin/finished")
+    public Result<List<Project>> getFinishedProjects() {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User currentUser = userService.getById(userId);
+        if (currentUser == null || currentUser.getRole() != 2) return Result.error("无权限");
+
+        QueryWrapper<Project> wrapper = new QueryWrapper<>();
+        wrapper.eq("status", 6).orderByDesc("audit_time"); // 👈 改为查 6
+        return Result.success(projectService.list(wrapper));
+    }
+
+    // 3. 管理员同意归档 -> 状态变5
+    @PostMapping("/admin/archive/{id}")
+    public Result<String> archiveProject(@PathVariable Long id) {
+        // ... 权限校验 ...
+        Project project = projectService.getById(id);
+        if (project == null || project.getStatus() != 6) {
+            return Result.error("项目状态错误，无法归档");
+        }
+        project.setStatus(5);
+        projectService.updateById(project);
+        // 发通知给申请人...
+        return Result.success("项目已成功归档");
+    }
+
+    // 4. 管理员驳回归档 -> 状态变回 3
+    @PostMapping("/admin/rejectArchive")
+    public Result<String> rejectArchive(@RequestBody Map<String, Object> params) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User currentUser = userService.getById(userId);
+        if (currentUser == null || currentUser.getRole() != 2) return Result.error("无权限");
+
+        Long projectId = Long.valueOf(params.get("projectId").toString());
+        String rejectReason = params.get("rejectReason").toString();
+
+        Project project = projectService.getById(projectId);
+        if (project == null || project.getStatus() != 6) return Result.error("状态错误");
+
+        project.setStatus(3); // 退回已结束
+        project.setRejectReason("归档申请被驳回：" + rejectReason); // 借用这个字段存驳回理由
+        projectService.updateById(project);
+
+        // 发通知给申请人
+        Message msg = new Message();
+        msg.setReceiveUserId(project.getUserId());
+        msg.setContent("您的项目【" + project.getTitle() + "】归档申请被驳回。理由：" + rejectReason + "，请继续补充资金报告后重新申请。");
+        msg.setType(1);
+        msg.setLinkId(project.getProjectId());
+        msg.setIsRead(0);
+        msg.setCreateTime(java.time.LocalDateTime.now());
+        messageService.save(msg);
+
+        return Result.success("已驳回结项申请");
     }
 
 }

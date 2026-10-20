@@ -44,7 +44,8 @@ public class CommentController {
             User user=userService.getById(comment.getUserId());
             if(user!=null)
             {
-                comment.setUsername(user.getUsername());
+                comment.setUsername(user.getUsername());//用户名称
+                comment.setAvatar(user.getAvatar());//头像
             }else{
                 comment.setUsername("未知用户");
             }
@@ -84,5 +85,27 @@ public class CommentController {
 
         commentService.save(comment);
         return Result.success("留言成功");
+    }
+
+    // 删除自己的留言
+    @DeleteMapping("/{id}")
+    public Result<String> deleteComment(@PathVariable Long id) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        Comment comment = commentService.getById(id);
+        if (comment == null || comment.getIsDeleted() == 1) {
+            return Result.error("留言不存在或已被删除");
+        }
+
+        // 校验：只能删除自己的留言
+        if (!comment.getUserId().equals(userId)) {
+            return Result.error("您只能删除自己的留言");
+        }
+
+        // 执行逻辑删除（设置 is_deleted 为 1）
+        comment.setIsDeleted(1);
+        commentService.updateById(comment);
+
+        return Result.success("留言已删除");
     }
 }

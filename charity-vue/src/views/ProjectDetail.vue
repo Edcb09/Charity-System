@@ -15,7 +15,7 @@
                     <h1>{{ project.title }}</h1>
                     <p class="type-tag">项目类型：{{ project.projectType }}</p>
                     <!-- 举报按钮 -->
-                    <el-button type="danger" plain size="small" @click="openViolationDialog">举报</el-button>
+                    <el-button type="danger" plain size="small" @click="openViolationDialog()">举报</el-button>
 
                     <el-progress
                     :percentage="calculatePercentage"
@@ -70,7 +70,7 @@
 
 
     <!--资金公示区域-->
-    <el-card style="margin-top: 20px;" v-if="project.status === 3||project.status===5">
+    <el-card style="margin-top: 20px;" v-if="project.status === 3||project.status===5||project.status===6">
         <el-divider content-position="left">资金使用公示</el-divider>
         <el-empty v-if="fundReportList.length===0" description="暂无资金公示记录" />
         <div v-for="item in fundReportList" :key="item.reportId" class="fund-item">
@@ -79,33 +79,66 @@
             <p class="time">公示时间：{{ item.createTime.replace('T',' ') }}</p>
         </div>
 
-        <!--申请人提交表单入口（仅项目申请人可见）-->
+        <!--申请人提交表单和结项入口（仅项目申请人可见）-->
         <el-button
         v-if="currentUsername===project.applicantName&&project.status===3"
         type="primary"
         style="margin-top: 15px;"
         @click="showFundReportDialog=true"
         >提交资金使用报告及证明材料</el-button>
+
+        <el-button 
+        v-if="currentUserId === project.userId && project.status === 3"
+        type="success" 
+        style="margin-top: 15px;"
+        @click="handleApplyFinish"
+      >申请结项归档</el-button>
+      
+      <el-alert
+      v-if="project.status===6"
+      title="该项目正在等待管理员进行归档审核，暂时无法提交新报告"
+      type="info"
+      show-icon
+      style="margin-top:15px"
+      />
     </el-card>
 
-    <!--提交资金弹窗-->
+        <!-- 资金报告提交弹窗 -->
     <el-dialog v-model="showFundReportDialog" title="提交资金使用报告" width="500px">
-        <el-form label-width="100px">
-            <el-form-item label="支出金额">
-                <el-input-number v-model="fundreportForm.reportAmount" :min="1"/>
-            </el-form-item>
-            <el-form-item label="支出说明">
-                <el-input v-model="fundreportForm.content" type="textarea" :rows="3" />
-            </el-form-item>
-        </el-form>
-        <template #footer>
-            <el-button @click="showFundReportDialog=false">取消</el-button>
-            <el-button type="primary" @click="submitFundReport">提交</el-button>
-        </template>
+      <el-form label-width="100px">
+        <el-form-item label="支出金额">
+          <el-input-number v-model="fundReportForm.reportAmount" :min="1" />
+        </el-form-item>
+        <el-form-item label="使用说明">
+          <el-input v-model="fundReportForm.content" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item label="上传凭证">
+          <el-upload
+            class="upload-file"
+            :show-file-list="false"
+            :http-request="uploadFundFile"
+            accept=".jpg,.jpeg,.png,.pdf"
+          >
+            <el-button type="primary" plain>点击上传图片或PDF</el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持 JPG/PNG/PDF，不超过 5MB</div>
+            </template>
+          </el-upload>
+          <!-- 如果有文件了，显示文件名或预览图 -->
+          <div v-if="fundReportForm.reportImg" style="margin-top: 10px;">
+            <span style="color: #67C23A;">✓ 已上传文件</span>
+            <a :href="fundReportForm.reportImg" target="_blank" style="margin-left: 10px; color: #409EFF;">点击预览</a>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showFundReportDialog = false">取消</el-button>
+        <el-button type="primary" @click="submitFundReport">提交</el-button>
+      </template>
     </el-dialog>
 
     <!--留言板区域-->
-    <el-card style="margin-top: 20px;" v-if="project.status === 2 || project.status === 3 || project.status === 5">
+    <el-card style="margin-top: 20px;" v-if="project.status === 2 || project.status === 3 || project.status === 5 ||project.status===6">
         <el-divider content-position="left">留言板({{ commentList.length }})</el-divider>
 
         <!--发布留言-->
@@ -121,17 +154,48 @@
             <div style="clear: both;"></div>
         </div>
 
-        <!--留言板-->
-        <div class="comment-list" style="margin-top:30px">
-            <el-empty v-if="commentList.length===0" description="暂无留言，快来抢沙发吧~"/>
-            <div v-for="item in commentList" :key="item.commentId" class="comment-item">
-                <div class="comment-header">
-                    <span class="username">{{ item.username }}</span>
-                    <span class="time">{{ formatCommentTime(item.createTime) }}</span>
-                </div>
-                <div class="comment-content">{{ item.content }}</div>
+        <!-- 留言列表 -->
+      <div class="comment-list" style="margin-top: 30px;">
+        <el-empty v-if="commentList.length === 0" description="暂无留言，快来抢沙发吧~" />
+        
+        <div v-for="item in commentList" :key="item.commentId" class="comment-item">
+          <!-- 左侧：头像 -->
+          <el-avatar 
+            :size="40" 
+            :src="item.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" 
+            class="comment-avatar" 
+          />
+          
+          <!-- 右侧：内容与信息 -->
+          <div class="comment-right">
+            <div class="comment-header">
+              <span class="username">{{ item.username }}</span>
+              <div class="comment-actions">
+                <span class="time">{{ formatCommentTime(item.createTime) }}</span>
+
+                <!-- 删除自己留言的按钮 👇 -->
+                <el-button 
+                  v-if="item.userId === currentUserId" 
+                  type="primary" 
+                  link 
+                  size="small" 
+                  style="margin-left: 10px;"
+                  @click="handleDeleteComment(item.commentId)"
+                >删除</el-button>
+
+                <el-button 
+                  type="danger" 
+                  link 
+                  size="small" 
+                  style="margin-left: 10px;"
+                  @click="openCommentReport(item)"
+                >举报</el-button>
+              </div>
             </div>
+            <div class="comment-content">{{ item.content }}</div>
+          </div>
         </div>
+      </div>
     </el-card>
 
     <!-- 举报弹窗 -->
@@ -158,7 +222,7 @@
 import {ref,onMounted,computed,reactive} from 'vue'
 import {useRoute,useRouter} from 'vue-router'
 import request from '@/utils/request'
-import { ElMessage, valueEquals } from 'element-plus';
+import { ElMessage, valueEquals,ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/stores/user';
 import { useMessageStore } from '@/stores/message';
 
@@ -177,6 +241,7 @@ const currentOrderNo=ref('')
 const fundReportList=ref([])//公示列表
 const showFundReportDialog=ref(false)//提交弹窗
 
+const currentUserId = ref(Number(localStorage.getItem('userId'))) // 存入当前用户ID
 
 const fundreportForm=reactive({
     projectId:null,
@@ -295,6 +360,25 @@ const submitComment =async()=>
     }
 }
 
+// 删除留言
+const handleDeleteComment = (commentId) => {
+  ElMessageBox.confirm('确定要删除这条留言吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await request.delete(`/comment/${commentId}`)
+      ElMessage.success('留言已删除')
+      fetchComments() // 重新加载留言列表
+    } catch (error) {
+      console.error(error)
+    }
+  }).catch(() => {
+    // 用户取消删除
+  })
+}
+
 //格式化留言时间
 const formatCommentTime=(timeStr)=>{
     if(!timeStr) return ''
@@ -369,20 +453,69 @@ const submitFundReport =async()=>
     }
 }
 
+// 上传资金凭证（兼容图片和PDF）
+const uploadFundFile = async (options) => {
+  const formData = new FormData()
+  formData.append('file', options.file)
+  try {
+    // 后端不需要改，它只管存文件
+    const res = await request.post('/file/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    fundReportForm.reportImg = res.data // 存下 URL
+    ElMessage.success('凭证上传成功')
+  } catch (error) {
+    ElMessage.error('上传失败')
+  }
+}
+
+//资金报告完毕后申请结项
+const handleApplyFinish = () => {
+  ElMessageBox.confirm(
+    '请确保所有资金使用报告已提交完毕。归档后，项目页面将变为只读状态，不可再操作。确定申请结项吗？', 
+    '申请结项', 
+    {
+      confirmButtonText: '确定申请',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  ).then(async () => {
+    try {
+      const res = await request.post(`/project/applyFinish/${project.value.projectId}`)
+      ElMessage.success(res.msg)
+      fetchDetail() 
+    } catch (error) {
+      console.error(error)
+    }
+  }).catch(() => {})
+}
 
 
 //举报模块
 const showViolationDialog = ref(false) 
-const violationForm = reactive({ reason: '' }) 
+const violationForm = reactive({ reason: '' ,targetType:1,commentId:null}) 
 
 // 打开举报弹窗
-const openViolationDialog = () => {
+const openViolationDialog = (comment=null) => {
   if (!localStorage.getItem('satoken')) {
     ElMessage.warning('请先登录后再举报')
     userStore.openLoginDialog()
     return
   }
+  if (comment) {
+    // 举报留言
+    violationForm.targetType = 2
+    violationForm.commentId = comment.commentId
+  } else {
+    // 举报项目
+    violationForm.targetType = 1
+    violationForm.commentId = null
+  }
   showViolationDialog.value = true 
+}
+
+const openCommentReport = (comment) => {
+  openViolationDialog(comment)
 }
 
 // 提交举报方法
@@ -392,12 +525,16 @@ const submitReport = async () => {
   try {
     await request.post('/report/add', {
       projectId: project.value.projectId,
-      reason: violationForm.reason
+      reason: violationForm.reason,
+      targetType: violationForm.targetType, 
+      commentId: violationForm.commentId    
     })
     ElMessage.success('举报提交成功，管理员会尽快处理')
     
     showViolationDialog.value = false 
     violationForm.reason = '' 
+    violationForm.commentId=null
+    violationForm.targetType=1
   } catch (error) {
     console.error(error)
   }
@@ -434,29 +571,53 @@ h1{font-size: 24px;margin-bottom: 10px;}
     padding: 15px;
     border-radius: 8px;
 }
-.comment-item{
-    padding: 15px 0;
-    border-bottom: 1px dashed #ebeef5;
+/* 留言列表布局 */
+.comment-item {
+  padding: 15px 0;
+  border-bottom: 1px dashed #ebeef5;
+  display: flex; /* 让头像和内容左右排列 */
+  align-items: flex-start; /* 顶部对齐 */
 }
-.comment-item:last-child{
-    border-bottom: none;
+.comment-item:last-child {
+  border-bottom: none;
 }
-.comment-header{
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
+
+.comment-avatar {
+  margin-right: 15px;
+  flex-shrink: 0; /* 防止头像被挤压变形 */
+  background-color: #f0f2f5; /* 默认头像的底色 */
 }
-.comment-header .username{
-    font-weight: bold;
-    color:#409eff
+
+.comment-right {
+  flex: 1; /* 让右侧内容占满剩余空间 */
 }
-.comment-header .time{
-    font-size: 13px;
-    color: #909399;
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
 }
-.comment-content{
-    color:#333;
-    line-height: 1.6;
-    font-size: 14px;
+
+.comment-header .username {
+  font-weight: bold;
+  color: #409EFF;
+  font-size: 14px;
+}
+
+.comment-actions {
+  display: flex;
+  align-items: center;
+}
+
+.comment-header .time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.comment-content {
+  color: #333;
+  line-height: 1.6;
+  font-size: 14px;
+  word-break: break-all; /* 防止长文本撑破容器 */
 }
 </style>

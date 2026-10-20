@@ -4,14 +4,8 @@ package com.example.charity.controller;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.charity.common.Result;
-import com.example.charity.entity.Message;
-import com.example.charity.entity.Project;
-import com.example.charity.entity.Report;
-import com.example.charity.entity.User;
-import com.example.charity.service.MessageService;
-import com.example.charity.service.ProjectService;
-import com.example.charity.service.ReportService;
-import com.example.charity.service.UserService;
+import com.example.charity.entity.*;
+import com.example.charity.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,21 +21,37 @@ public class ReportController {
     @Autowired private ProjectService projectService;
     @Autowired private UserService userService;
     @Autowired private MessageService messageService;
+    @Autowired private CommentService commentService;
 
     // 1. 用户提交举报
     @PostMapping("/add")
     public Result<String> addReport(@RequestBody Report report) {
         Long userId = StpUtil.getLoginIdAsLong();
-        Project project = projectService.getById(report.getProjectId());
 
-        if (project == null) return Result.error("项目不存在");
-        if (project.getUserId().equals(userId)) return Result.error("不能举报自己发起的项目");
+        // 如果是举报项目（targetType 默认为1）
+        if (report.getTargetType() == null || report.getTargetType() == 1) {
+            Project project = projectService.getById(report.getProjectId());
+            if (project == null) return Result.error("项目不存在");
+            if (project.getUserId().equals(userId)) return Result.error("不能举报自己发起的项目");
 
-        // 防重复举报校验
-        QueryWrapper<Report> wrapper = new QueryWrapper<>();
-        wrapper.eq("user_id", userId).eq("project_id", report.getProjectId());
-        if (reportService.count(wrapper) > 0) {
-            return Result.error("您已经举报过该项目，请等待管理员处理");
+            QueryWrapper<Report> wrapper = new QueryWrapper<>();
+            wrapper.eq("user_id", userId).eq("project_id", report.getProjectId()).eq("target_type", 1);
+            if (reportService.count(wrapper) > 0) return Result.error("您已经举报过该项目了");
+        }
+        // 如果是举报留言（targetType 为2）
+        else if (report.getTargetType() == 2) {
+            if (report.getCommentId() == null) return Result.error("留言ID不能为空");
+
+            Comment comment = commentService.getById(report.getCommentId());
+            if (comment == null) return Result.error("该留言不存在或已被删除");
+            if (comment.getUserId().equals(userId)) {
+                return Result.error("不能举报自己发布的留言");
+            }
+
+            // 防重复举报留言
+            QueryWrapper<Report> wrapper = new QueryWrapper<>();
+            wrapper.eq("user_id", userId).eq("comment_id", report.getCommentId()).eq("target_type", 2);
+            if (reportService.count(wrapper) > 0) return Result.error("您已经举报过该留言了");
         }
 
         report.setUserId(userId);
@@ -67,6 +77,12 @@ public class ReportController {
             if (p != null) r.setProjectTitle(p.getTitle());
             User u = userService.getById(r.getUserId());
             if (u != null) r.setReporterName(u.getUsername());
+
+            // 如果是举报留言，把留言内容填进去
+            if (r.getTargetType() == 2 && r.getCommentId() != null) {
+                com.example.charity.entity.Comment c = commentService.getById(r.getCommentId());
+                if (c != null) r.setCommentContent(c.getContent());
+            }
         }
         return Result.success(list);
     }
@@ -92,29 +108,48 @@ public class ReportController {
         reportService.updateById(report);
 
         // 2. 如果举报属实，强制下架项目 (新增逻辑)
-        Project project = projectService.getById(report.getProjectId());
-        if (status == 1 && project != null) {
-            // 将项目状态改为 4 (驳回/违规下架)
-            project.setStatus(4);
-            // 把违规原因写在项目的驳回理由里
-            project.setRejectReason("违反平台规定被强制下架。处理说明：" + handleResult);
-            projectService.updateById(project);
+        if (status == 1) {
+            // 场景1：处理项目举报（下架项目）
+            if (report.getTargetType() == 1) {
+                Project project = projectService.getById(report.getProjectId());
+                if (project != null) {
+                    project.setStatus(4);
+                    project.setRejectReason("违反平台规定被强制下架。处理说明：" + handleResult);
+                    projectService.updateById(project);
+                    // 发通知给项目申请人
+                    Message authorMsg = new Message();
+                    authorMsg.setReceiveUserId(project.getUserId()); // 项目作者
+                    authorMsg.setContent("您的项目因违反平台规定已被管理员下架。处理说明：" + handleResult);
+                    authorMsg.setType(5);
+                    authorMsg.setLinkId(report.getProjectId());
+                    authorMsg.setIsRead(0);
+                    authorMsg.setCreateTime(LocalDateTime.now());
+                    messageService.save(authorMsg);
+                }
+            }
+            // 场景2：处理留言举报（屏蔽留言）
+            else if (report.getTargetType() == 2) {
+                Comment comment = commentService.getById(report.getCommentId());
+                if (comment != null) {
+                    comment.setIsDeleted(1); // 逻辑删除该留言
+                    commentService.updateById(comment);
 
-            // 给项目申请人发送下架通知
-            Message applicantMsg = new Message();
-            applicantMsg.setReceiveUserId(project.getUserId());
-            applicantMsg.setContent("您发起的项目【" + project.getTitle() + "】因违规被强制下架。原因：" + handleResult);
-            applicantMsg.setType(1); // 1 审核结果通知
-            applicantMsg.setLinkId(project.getProjectId());
-            applicantMsg.setIsRead(0);
-            applicantMsg.setCreateTime(LocalDateTime.now());
-            messageService.save(applicantMsg);
+                    Message authorMsg = new Message();
+                    authorMsg.setReceiveUserId(comment.getUserId()); // 留言作者
+                    authorMsg.setContent("您的留言因违反平台规定已被管理员屏蔽。处理说明：" + handleResult);
+                    authorMsg.setType(5); // 可以定义 5 为系统警告/违规通知
+                    authorMsg.setLinkId(report.getProjectId());
+                    authorMsg.setIsRead(0);
+                    authorMsg.setCreateTime(LocalDateTime.now());
+                    messageService.save(authorMsg);
+                }
+            }
         }
 
         // 3. 给举报人发送处理结果通知
         Message msg = new Message();
         msg.setReceiveUserId(report.getUserId());
-        msg.setContent("您对项目【" + (project != null ? project.getTitle() : "未知项目") + "】的举报已处理。结果：" + handleResult);
+        msg.setContent("您对" + (report.getTargetType() == 1 ? "项目" : "留言") + "的举报已处理。结果：" + handleResult);
         msg.setType(4); // 4 举报处理结果
         msg.setLinkId(report.getProjectId());
         msg.setIsRead(0);

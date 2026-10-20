@@ -23,7 +23,7 @@ public class Project {
     private BigDecimal currentAmount;
     private LocalDateTime endTime;
     private String projectType;
-    private Integer status;//0草稿 1待审核 2募捐中 3已结束 4驳回 5已归档
+    private Integer status;//0草稿 1待审核 2募捐中 3已结束 4驳回 5已归档 6结项待审核
     private String rejectReason;
     private String coverImg;
     private LocalDateTime createTime;

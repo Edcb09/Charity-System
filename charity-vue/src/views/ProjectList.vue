@@ -1,15 +1,6 @@
 <template>
     <div class="project-list">
-        <!--搜索与筛选栏-->
-        <el-card class="search-bar">
-            <el-input v-model="keyword" placeholder="搜索慈善项目" style="width: 200px;margin-right: 10px;" @keyup.enter="fetchData"/>
-                <el-select v-model="projectType" placeholder="慈善项目类型" clearable style="width: 150px; margin-right: 10px;" @change="fetchData">
-                <el-option label="助学" value="助学"/>
-                <el-option label="医疗" value="医疗"/>
-                <el-option label="救灾" value="救灾"/>
-                </el-select>
-                <el-button type="primary" @click="fetchData">搜索</el-button>
-        </el-card>
+        
 
         <!--慈善项目卡片展示-->
         <el-row :gutter="20" style="margin-top: 20px;">
@@ -30,6 +21,7 @@
                         </el-tag>
                         <el-tag v-else-if="item.status===3" type="info" effect="plain" size="small">已结束</el-tag>
                         <el-tag v-else-if="item.status===5" type="warning" effect="plain" size="small">已归档</el-tag>
+                        <el-tag v-if="item.status === 6" type="warning" effect="plain" size="small">待归档</el-tag>
 
                         </div>
                         <p style="color:#666;font-size:13px;margin-top: 8px;">类型：{{ item.projectType }}</p>
@@ -66,18 +58,16 @@
 </template>
 
 <script setup>
-import {ref,onMounted} from 'vue'
-import {useRouter} from 'vue-router'
+import {ref,onMounted,watch} from 'vue'
+import {useRouter,useRoute} from 'vue-router'
 import request from '@/utils/request'
 
+const route=useRoute()
 const router=useRouter()
 const projectList=ref([])
 const total=ref(0)
 const pageNum=ref(1)
 const pageSize=ref(9)
-const keyword=ref('')
-const projectType=ref('')
-
 
 //计算进度条百分比
 const calculatePercentage=(current,target)=>{
@@ -86,33 +76,50 @@ const calculatePercentage=(current,target)=>{
     return percent>100?100:Math.floor(percent)
 }
 
-//获取数据
-const fetchData =async()=>{
-    pageNum.value=1//每次搜索时都重置回第一页
-    try{
-        const res=await request.get('/project/list',{
-            params:{
-                pageNum: pageNum.value,
-                pageSize: pageSize.value,
-                keyword: keyword.value,
-                projectType: projectType.value
-            }
+// 获取数据的方法
+const fetchData = async () => {
+  try {
+    // 从路由的 query 中获取搜索条件
+    const keyword = route.query.keyword || ''
+    const projectType = route.query.type || ''
 
-        })
-        projectList.value=res.data.records
-        total.value=res.data.total
-    }catch(error)
-    {
-        console.error(error)
-    }
+    const res = await request.get('/project/list', {
+      params: {
+        pageNum: pageNum.value,
+        pageSize: pageSize.value,
+        keyword: keyword,
+        projectType: projectType
+      }
+    })
+    projectList.value = res.data.records
+    total.value = res.data.total
+  } catch (error) {
+    console.error(error)
+  }
 }
 
+//搜索：重置页码再查询
+const onSearch = ()=>{
+    pageNum.value =1
+    fetchData()
+}
 
 //分页切换
 const handlePageChange=(val)=>{
     pageNum.value =val
     fetchData()
 }
+
+
+// 监听路由 query 变化，如果发生变化，重新请求数据并重置页码
+watch(
+  () => route.query,
+  () => {
+    pageNum.value = 1 // 每次新搜索，都回到第一页
+    fetchData()
+  },
+  { deep: true } // 深度监听
+)
 
 //查看详情
 const goDetail=(id)=>{
@@ -128,7 +135,6 @@ onMounted(()=>{
 
 <style scoped>
 .cover-img{width: 100%;height: 160px;object-fit: cover;}
-.search-bar{display: flex;align-items: center;}
 .project-card{
     height: 380px;
     display: flex;

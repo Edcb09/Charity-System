@@ -1,7 +1,7 @@
 <template>
     <el-dialog 
     v-model="userStore.showLoginDialog"
-    title="慈善捐款系统 - 登录"
+    title="登录"
     width="400px"
     :close-on-click-modal="true"
     :close-on-press-escape="true"
@@ -19,7 +19,7 @@
             </el-form-item>
 
             <el-form-item>
-                <el-button type="primary" @click="handleLogin" style="width:100%;">登录</el-button>
+                <el-button type="primary" size="large" @click="handleLogin" style="width:100%;margin-top: 10px;font-size: 16px;">登录</el-button>
             </el-form-item>
 
             </el-form>
@@ -56,13 +56,14 @@ try{
     localStorage.setItem('satoken',res.data.token)//存Token
     localStorage.setItem('username',res.data.username)//存用户名
     localStorage.setItem('role',res.data.role)//存入角色
+    localStorage.setItem('avatar', res.data.avatar || '')//存入头像
+    localStorage.setItem('userId', res.data.userId)
     ElMessage.success('登录成功');
     userStore.closeLoginDialog()
     router.push('/')//跳转首页
     window.location.reload()
 }catch(error){
     console.error(error);
-    ElMessage.error('登录失败，请检查账号和密码');
 }
 }
 
@@ -97,10 +98,16 @@ const resetForm=()=>{
     margin: 30px auto 0;
 }
 
-:deep(.el-dialog__body)
+:deep(.el-dialog__header .el-dialog__title)
 {
-    padding-top:20px;
-    padding-bottom: 30px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #0f4c3a; 
+  letter-spacing: 1px;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
 }
 
 </style>

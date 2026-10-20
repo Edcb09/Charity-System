@@ -1,0 +1,18 @@
+:root {
+  /* 覆盖 Element Plus 的主色调为深绿色 */
+  --el-color-primary: #1e6c4f;
+  --el-color-primary-light-3: #3b8e6f;
+  --el-color-primary-light-5: #7cbca4;
+  --el-color-primary-light-7: #c8e6d9;
+  --el-color-primary-light-8: #e4f3ed;
+  --el-color-primary-light-9: #f0f9f5;
+  --el-color-primary-dark-2: #0f4c3a;
+  
+  /* Link 颜色也统一为深绿色 */
+  --el-link-color: var(--el-color-primary);
+}
+
+
+:root {
+  --theme-gradient-bg: linear-gradient(135deg, #0f4c3a 0%, #1e6c4f 100%);
+}

@@ -50,17 +50,20 @@ public class AdminController {
         reportWrapper.eq("status",0);
         long fundReportCount=fundReportService.count(reportWrapper);
 
-        /// 4. 统计待处理举报 (status = 0) 👈 新增
+        // 4. 统计待处理举报 (status = 0)
         QueryWrapper<Report> violationWrapper = new QueryWrapper<>();
         violationWrapper.eq("status", 0);
         long violationCount = reportService.count(violationWrapper);
 
-        // 5. 返回总数
+        // 5. 统计待归档审核的项目 (status = 6)
+        long archiveCount = projectService.count(new QueryWrapper<Project>().eq("status", 6));
+
+        // 6. 返回总数
         Map<String, Long> map = new HashMap<>();
         map.put("projectCount", projectCount);
         map.put("fundReportCount", fundReportCount); // 改名为了清晰
-        map.put("violationCount", violationCount);   // 👈 新增
-        map.put("total", projectCount + fundReportCount + violationCount);
+        map.put("violationCount", violationCount);
+        map.put("total", projectCount + fundReportCount + violationCount + archiveCount);
 
         return Result.success(map);
     }

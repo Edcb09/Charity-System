@@ -125,7 +125,37 @@ public class UserController {
         map.put("token",StpUtil.getTokenValue());
         map.put("role",dbUser.getRole());
         map.put("username",dbUser.getUsername());
+        map.put("avatar", dbUser.getAvatar());
+        map.put("userId", dbUser.getUserId());
 
         return Result.success(map);
+    }
+
+    // 更新个人信息
+    @PostMapping("/updateInfo")
+    public Result<String> updateInfo(@RequestBody User user) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        User oldUser = userService.getById(userId);
+        if (oldUser == null) return Result.error("用户不存在");
+
+        // 只允许修改头像、邮箱、真名、手机号
+        oldUser.setAvatar(user.getAvatar());
+        oldUser.setEmail(user.getEmail());
+        oldUser.setRealName(user.getRealName());
+        oldUser.setPhone(user.getPhone());
+
+        userService.updateById(oldUser);
+        return Result.success("个人信息更新成功");
+    }
+
+    @GetMapping("/myInfo")
+    public Result<User> myInfo() {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User user = userService.getById(userId);
+        if (user != null) {
+            user.setPassword(null); // 隐藏密码
+        }
+        return Result.success(user);
     }
 }
