@@ -18,6 +18,7 @@
                         <el-tag v-if="scope.row.status===3" type="info">已结束</el-tag>
                         <el-tag v-if="scope.row.status===4" type="danger">已驳回</el-tag>
                         <el-tag v-if="scope.row.status===5" type="info">已归档</el-tag>
+                        <el-tag v-if="scope.row.status === 6" type="warning" effect="dark">待审核归档</el-tag>
                     </template>
                 </el-table-column>
 

@@ -32,6 +32,7 @@
                     type="datetime"
                     placeholder="选择截止日期"
                     value-format="YYYY-MM-DD[T]HH:mm:ss"
+                    :disabled-date="disabledDate"
                     />
                 </el-form-item>
 
@@ -190,6 +191,12 @@ const uploadImage = async (options, type) => {
     console.error(error)
     ElMessage.error('图片上传失败')
   }
+}
+
+// 禁用设置过去
+const disabledDate = (time) => {
+  // time 是一个 Date 对象
+  return time.getTime() < Date.now() 
 }
 
 </script>

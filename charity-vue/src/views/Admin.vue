@@ -1,28 +1,27 @@
 <template>
-    <div style="max-width: 1200px;margin: 20px auto;">
-        <el-card>
+        <el-card style="margin-top: 20px;">
             <template #header>
                 <h3>待审核项目列表</h3>
             </template>
 
             <el-table :data="pendingList" stripe v-loading="loading" @row-click="handleProjectRowClick" style="cursor:pointer">
-                <el-table-column prop="title" label="项目名称" width="200" />
-                <el-table-column prop="applicantName" label="申请人" width="120" />
-                <el-table-column prop="projectType" label="类型" width="100" />
-                <el-table-column prop="targetAmount" label="目标金额" width="120" >
-                <template #default="scope">￥{{ scope.row.targetAmount }}</template>
-                </el-table-column>
-                <el-table-column prop="creareTime" label="申请时间" width="180">
-                    <template #default="scope">{{ scope.row.createTime.replace('T',' ') }}</template>
-                </el-table-column>
+            <el-table-column prop="title" label="项目名称" width="100" />
+            <el-table-column prop="applicantName" label="申请人" width="100" />
+            <el-table-column prop="projectType" label="类型" min-width="100"/>
+            <el-table-column prop="targetAmount" label="目标金额" width="120" >
+            <template #default="scope">￥{{ scope.row.targetAmount }}</template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="申请时间" width="180">
+            <template #default="scope">{{ scope.row.createTime.replace('T',' ') }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="250" fixed="right">
+            <template #default="scope">
+            <el-button type="success" size="small" @click.stop="handleAudit(scope.row.projectId,2)">通过</el-button>
+            <el-button type="danger" size="small" @click.stop="openRejectDialog(scope.row.projectId)">驳回</el-button>
+        </template>
+    </el-table-column>
+</el-table>
 
-                <el-table-column label="操作" width="250" fixed="right">
-                    <template #default="scope">
-                        <el-button type="success" size="small" @click="handleAudit(scope.row.projectId,2)">通过</el-button>
-                        <el-button type="danger" size="small" @click="openRejectDialog(scope.row.projectId)">驳回</el-button>
-                    </template>
-                </el-table-column>
-            </el-table>
         </el-card>
 
         <!-- 项目详情弹窗 -->
@@ -41,6 +40,14 @@
         </el-descriptions>
         
         <div style="margin-top: 20px; text-align: center;">
+          <!-- 项目封面图 -->
+        <div v-if="currentProject.coverImg" style="margin-top: 20px; text-align: center;">
+          <h4>项目封面图：</h4>
+          <el-image 
+            :src="currentProject.coverImg" 
+            :preview-src-list="[currentProject.coverImg]" 
+            style="max-width: 100%; max-height: 300px; border-radius: 8px;" 
+          />
           <div v-if="currentProject.proofImg" style="margin-bottom: 20px;">
             <h4>证明材料：</h4>
             <el-image 
@@ -49,6 +56,8 @@
               style="max-width: 100%; max-height: 300px; border-radius: 8px;" 
             />
           </div>
+          
+        </div>
         </div>
       </div>
     </el-dialog>
@@ -61,7 +70,7 @@
                 <el-button type="danger" @click="confirmReject">确认驳回</el-button>
             </template>
         </el-dialog>
-    </div>
+
 
 
     <el-card style="margin-top: 20px;">
@@ -76,8 +85,8 @@
             <el-table-column prop="content" label="使用说明"/>
             <el-table-column label="操作" width="200">
                 <template #default="scope">
-                    <el-button type="success" size="small" @click="auditFund(scope.row.reportId,1)">通过并公示</el-button>
-                    <el-button type="danger" size="small" @click="auditFund(scope.row.reportId,2)">w驳回</el-button>
+                    <el-button type="success" size="small" @click.stop="auditFund(scope.row.reportId,1)">通过并公示</el-button>
+                    <el-button type="danger" size="small" @click.stop="auditFund(scope.row.reportId,2)">驳回</el-button>
                 </template>
             </el-table-column>
         </el-table>
@@ -94,13 +103,22 @@
           </el-descriptions-item>
         </el-descriptions>
         
-        <div v-if="currentFund.reportImg" style="margin-top: 20px; text-align: center;">
-          <h4>凭证图片：</h4>
-          <el-image 
-            :src="currentFund.reportImg" 
-            :preview-src-list="[currentFund.reportImg]" 
-            style="max-width: 100%; max-height: 300px; border-radius: 8px;" 
-          />
+          
+        <div v-if="currentFund.reportImg" style="margin-top: 20px;">
+          <h4>相关凭证文件：</h4>
+          <div style="margin-top: 10px;">
+            <el-button 
+              v-for="(file, idx) in parseAdminFiles(currentFund.reportImg)" 
+              :key="idx" 
+              type="primary" 
+              plain 
+              size="small"
+              style="margin-right: 10px; margin-bottom: 10px;"
+              @click="previewFile(file.url)"
+            >
+              📄 {{ file.name }}
+            </el-button>
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -148,12 +166,12 @@
         </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
-            <el-button type="info" size="small" @click="$router.push(`/project/${scope.row.projectId}`)">查看详情</el-button>
+            <el-button type="info" size="small" @click.stop="$router.push(`/project/${scope.row.projectId}`)">查看详情</el-button>
             <el-button 
               v-if="scope.row.status === 0" 
               type="primary" 
               size="small" 
-              @click="openHandleDialog(scope.row)"
+              @click.stop="openHandleDialog(scope.row)"
             >去处理</el-button>
           </template>
         </el-table-column>
@@ -198,9 +216,9 @@
         <el-table-column label="操作" width="300" fixed="right">
           <template #default="scope">
             <el-button type="info" size="small" @click.stop="$router.push(`/project/${scope.row.projectId}`)">查看资金公示</el-button>
-            <el-button type="success" size="small" @click="handleArchive(scope.row.projectId)">确认归档</el-button>
+            <el-button type="success" size="small" @click.stop="handleArchive(scope.row.projectId)">确认归档</el-button>
 
-            <el-button type="danger" size="small" @click="handleRejectArchive(scope.row.projectId)">驳回</el-button>
+            <el-button type="danger" size="small" @click.stop="handleRejectArchive(scope.row.projectId)">驳回</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -339,6 +357,24 @@ const auditFund=async(reportId,status)=>{
             //用户点击取消，不做处理
         })
     }
+}
+
+// 解析文件
+const parseAdminFiles = (jsonStr) => {
+  if (!jsonStr) return []
+  if (jsonStr.startsWith('http') || jsonStr.startsWith('/images')) {
+    return [{ name: '查看凭证图片', url: jsonStr }]
+  }
+  try {
+    return JSON.parse(jsonStr)
+  } catch (e) {
+    return []
+  }
+}
+
+// 预览文件（图片和文档）
+const previewFile = (url) => {
+  window.open(url, '_blank')
 }
 
 

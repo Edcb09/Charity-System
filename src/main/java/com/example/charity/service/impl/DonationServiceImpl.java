@@ -91,6 +91,7 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
         project = projectMapper.selectById(donation.getProjectId());
         if (project.getCurrentAmount().compareTo(project.getTargetAmount()) >= 0) {
             project.setStatus(3);
+            project.setFinishTime(java.time.LocalDateTime.now());
             projectMapper.updateById(project);
         }
 

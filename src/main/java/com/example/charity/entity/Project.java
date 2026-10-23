@@ -28,6 +28,7 @@ public class Project {
     private String coverImg;
     private LocalDateTime createTime;
     private LocalDateTime auditTime;
+    private LocalDateTime finishTime;
 
     //非数据库字段，用于前端展示申请人昵称
     @TableField(exist=false)

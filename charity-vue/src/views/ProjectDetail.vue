@@ -13,7 +13,24 @@
                 <!--右侧核心信息-->
                 <el-col :xs="24" :sm="14">
                     <h1>{{ project.title }}</h1>
-                    <p class="type-tag">项目类型：{{ project.projectType }}</p>
+          <p class="type-tag">项目类型：{{ project.projectType }}</p>
+          
+                <!--时间信息展示 -->
+                <div class="time-info" style="margin-bottom: 15px; font-size: 13px; color: #666;">
+                <!-- 开始时间（审核通过的时间，如果没有就用创建时间） -->
+                <span style="margin-right: 20px;" v-if="project.status >= 2 && project.status !== 4">
+                  ⏱ 开始募捐：{{ (project.auditTime || project.createTime).replace('T', ' ').substring(0, 16) }}
+                </span>
+            
+                <!-- 结束时间逻辑：如果是募捐中，显示预期；如果已结束/归档，显示实际达标/结束时间 -->
+                <span v-if="project.status === 2">
+                  ⏳ 预期截止：{{ project.endTime ? project.endTime.replace('T', ' ').substring(0, 16) : '-' }}
+                </span>
+                <span v-if="project.status === 3 || project.status === 5">
+                  🏁 结束时间：{{ (project.finishTime || project.endTime).replace('T', ' ').substring(0, 16) }}
+                </span>
+              </div>
+                         
                     <!-- 举报按钮 -->
                     <el-button type="danger" plain size="small" @click="openViolationDialog()">举报</el-button>
 
@@ -77,6 +94,20 @@
             <h4>支出金额：<span style="color:#f56c6c">￥{{ item.reportAmount }}</span></h4>
             <p>使用说明：{{ item.content }}</p>
             <p class="time">公示时间：{{ item.createTime.replace('T',' ') }}</p>
+    <!-- 解析并展示文件列表 -->
+        <div v-if="item.reportImg" class="fund-files">
+          <span style="font-size: 13px; color: #666; margin-right: 10px;">相关凭证：</span>
+          <el-button 
+            v-for="(file, idx) in parseFiles(item.reportImg)" 
+            :key="idx" 
+            type="primary" 
+            link 
+            size="small"
+            @click="previewFile(file.url)"
+          >
+            📄 {{ file.name }}
+          </el-button>
+        </div>
         </div>
 
         <!--申请人提交表单和结项入口（仅项目申请人可见）-->
@@ -113,21 +144,29 @@
           <el-input v-model="fundReportForm.content" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item label="上传凭证">
-          <el-upload
-            class="upload-file"
-            :show-file-list="false"
-            :http-request="uploadFundFile"
-            accept=".jpg,.jpeg,.png,.pdf"
-          >
-            <el-button type="primary" plain>点击上传图片或PDF</el-button>
-            <template #tip>
-              <div class="el-upload__tip">支持 JPG/PNG/PDF，不超过 5MB</div>
-            </template>
-          </el-upload>
-          <!-- 如果有文件了，显示文件名或预览图 -->
-          <div v-if="fundReportForm.reportImg" style="margin-top: 10px;">
-            <span style="color: #67C23A;">✓ 已上传文件</span>
-            <a :href="fundReportForm.reportImg" target="_blank" style="margin-left: 10px; color: #409EFF;">点击预览</a>
+          <div style="width: 100%;">
+            <el-upload
+              class="upload-file"
+              :show-file-list="false"
+              :http-request="uploadFundFile"
+              accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+            >
+              <el-button type="primary" plain>点击上传凭证 (可多次点击上传)</el-button>
+              <template #tip>
+                <div class="el-upload__tip">支持图片、PDF、Word、Excel，单文件不超过 10MB</div>
+              </template>
+            </el-upload>
+            
+            <!-- 已上传的文件列表 -->
+            <div v-if="fundReportFileList.length > 0" class="uploaded-file-list" style="margin-top: 10px;">
+              <div v-for="(file, index) in fundReportFileList" :key="index" class="file-item">
+                <span class="file-name">📄 {{ file.name }}</span>
+                <div>
+                  <el-button type="primary" link size="small" @click="previewFile(file.url)">预览</el-button>
+                  <el-button type="danger" link size="small" @click="removeFile(index)">删除</el-button>
+                </div>
+              </div>
+            </div>
           </div>
         </el-form-item>
       </el-form>
@@ -243,11 +282,15 @@ const showFundReportDialog=ref(false)//提交弹窗
 
 const currentUserId = ref(Number(localStorage.getItem('userId'))) // 存入当前用户ID
 
-const fundreportForm=reactive({
-    projectId:null,
-    reportAmount:100,
-    content:''
+const fundReportForm = reactive({
+  projectId: null,
+  reportAmount: 100, 
+  content: '',
+  reportImg: '' // 提交时用于存 JSON 字符串
 })
+
+const fundReportFileList = ref([]) 
+
 const currentUsername=ref(localStorage.getItem('username') || '')
 
 const newComment=ref('')
@@ -426,46 +469,87 @@ const fetchFundReports =async()=>
 }
 
 //提交资金使用报告
-const submitFundReport =async()=>
-{
-    //基础校验
-    if(!fundreportForm.reportAmount||fundreportForm.reportAmount<=0){
-        return ElMessage.warning('请输入正确的支出金额')
-    }
-    if(!fundreportForm.content.trim()){
-        return ElMessage.warning('请填写资金使用说明')
-    }
+const submitFundReport = async () => {
+  if (!fundReportForm.reportAmount || fundReportForm.reportAmount <= 0) {
+    return ElMessage.warning('请输入正确的支出金额')
+  }
+  if (!fundReportForm.content.trim()) {
+    return ElMessage.warning('请填写资金使用说明')
+  }
 
-    try{
-        fundreportForm.projectId=project.value.projectId
-
-        await request.post('/fund-report/add',fundreportForm)
-        ElMessage.success('报告提交成功，等待管理员审核')
-
-        //关闭弹窗，清空表单，并刷新列表
-        showFundReportDialog.value=false
-        fundreportForm.reportAmount=100
-        fundreportForm.content=''
-        fetchFundReports()
-    }catch(e)
-    {
-        console.error("提交资金报告失败",e)
-    }
+  try {
+    fundReportForm.projectId = project.value.projectId
+    // 把文件列表转为 JSON 字符串存入 reportImg
+    fundReportForm.reportImg = fundReportFileList.value.length > 0 
+      ? JSON.stringify(fundReportFileList.value) 
+      : ''
+      
+    await request.post('/fund-report/add', fundReportForm)
+    ElMessage.success('报告提交成功，等待管理员审核')
+    
+    showFundReportDialog.value = false
+    fundReportForm.reportAmount = 100
+    fundReportForm.content = ''
+    fundReportFileList.value = [] // 清空文件列表
+    fetchFundReports()
+  } catch (error) {
+    console.error("提交资金报告失败", error)
+  }
 }
 
 // 上传资金凭证（兼容图片和PDF）
 const uploadFundFile = async (options) => {
+  const file = options.file
+  const isLt10M = file.size / 1024 / 1024 < 10
+  if (!isLt10M) return ElMessage.error('文件大小不能超过 10MB!')
+
   const formData = new FormData()
-  formData.append('file', options.file)
+  formData.append('file', file)
+  
   try {
-    // 后端不需要改，它只管存文件
     const res = await request.post('/file/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    fundReportForm.reportImg = res.data // 存下 URL
-    ElMessage.success('凭证上传成功')
+    // 将文件名和 URL 存入列表
+    fundReportFileList.value.push({
+      name: file.name,
+      url: res.data
+    })
+    ElMessage.success('文件上传成功')
   } catch (error) {
     ElMessage.error('上传失败')
+  }
+}
+
+// 移除文件
+const removeFile = (index) => {
+  fundReportFileList.value.splice(index, 1)
+}
+
+// 预览文件（图片直接看，文档新窗口打开或下载）
+const previewFile = (url) => {
+  const isImage = /\.(jpg|jpeg|png|gif)$/i.test(url)
+  if (isImage) {
+    // 如果是图片，可以用 Element Plus 的图片预览
+    // 这里简单处理，直接新窗口打开
+    window.open(url, '_blank')
+  } else {
+    // 如果是 PDF/Word 等，新窗口打开（浏览器会提示下载或直接用自带阅读器打开）
+    window.open(url, '_blank')
+  }
+}
+
+// 解析文件列表
+const parseFiles = (jsonStr) => {
+  if (!jsonStr) return []
+  // 兼容以前单张图片的字符串
+  if (jsonStr.startsWith('http') || jsonStr.startsWith('/images')) {
+    return [{ name: '查看凭证图片', url: jsonStr }]
+  }
+  try {
+    return JSON.parse(jsonStr)
+  } catch (e) {
+    return []
   }
 }
 

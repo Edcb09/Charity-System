@@ -98,11 +98,11 @@ const fetchData = async () => {
   }
 }
 
-//搜索：重置页码再查询
-const onSearch = ()=>{
-    pageNum.value =1
-    fetchData()
-}
+// //搜索：重置页码再查询
+// const onSearch = ()=>{
+//     pageNum.value =1
+//     fetchData()
+// }
 
 //分页切换
 const handlePageChange=(val)=>{
