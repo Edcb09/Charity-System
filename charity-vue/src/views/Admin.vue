@@ -1,32 +1,163 @@
 <template>
-        <el-card style="margin-top: 20px;">
-            <template #header>
-                <h3>待审核项目列表</h3>
-            </template>
+  <div style="max-width: 1200px; margin: 20px auto;">
+    <el-card shadow="never">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0;">管理员工作台</h3>
+          <el-button type="primary" link @click="refreshAll">
+            <el-icon style="margin-right: 4px;" :class="{ 'is-spinning': isRefreshing }">
+              <Refresh />
+            </el-icon>
+            刷新数据
+          </el-button>
+        </div>
+      </template>
 
-            <el-table :data="pendingList" stripe v-loading="loading" @row-click="handleProjectRowClick" style="cursor:pointer">
+      <el-tabs v-model="activeTab" class="admin-tabs">
+        <!-- Tab 1: 项目审核 -->
+        <el-tab-pane name="project">
+          <template #label>
+            <span class="tab-label">项目审核</span>
+            <el-badge v-if="pendingList.length > 0" :value="pendingList.length" class="tab-badge" />
+          </template>
+          <el-table :data="pendingList" stripe v-loading="loading" @row-click="handleProjectRowClick" style="cursor:pointer">
             <el-table-column prop="title" label="项目名称" width="100" />
             <el-table-column prop="applicantName" label="申请人" width="100" />
             <el-table-column prop="projectType" label="类型" min-width="100"/>
             <el-table-column prop="targetAmount" label="目标金额" width="120" >
-            <template #default="scope">￥{{ scope.row.targetAmount }}</template>
+              <template #default="scope">￥{{ scope.row.targetAmount }}</template>
             </el-table-column>
             <el-table-column prop="createTime" label="申请时间" width="180">
-            <template #default="scope">{{ scope.row.createTime.replace('T',' ') }}</template>
+              <template #default="scope">{{ scope.row.createTime.replace('T',' ') }}</template>
             </el-table-column>
             <el-table-column label="操作" width="250" fixed="right">
-            <template #default="scope">
-            <el-button type="success" size="small" @click.stop="handleAudit(scope.row.projectId,2)">通过</el-button>
-            <el-button type="danger" size="small" @click.stop="openRejectDialog(scope.row.projectId)">驳回</el-button>
-        </template>
-    </el-table-column>
-</el-table>
+              <template #default="scope">
+                <el-button type="success" size="small" @click.stop="handleAudit(scope.row.projectId,2)">通过</el-button>
+                <el-button type="danger" size="small" @click.stop="openRejectDialog(scope.row.projectId)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
 
-        </el-card>
+        <!-- Tab 2: 资金审核 -->
+        <el-tab-pane name="fund">
+          <template #label>
+            <span class="tab-label">资金报告</span>
+            <el-badge v-if="fundPendingList.length > 0" :value="fundPendingList.length" class="tab-badge" />
+          </template>
+          <el-table :data="fundPendingList" stripe @row-click="handleFundRowClick" style="cursor:pointer">
+            <el-table-column prop="projectId" label="项目ID" width="100" />
+            <el-table-column prop="reportAmount" label="支出金额" width="120">
+              <template #default="scope">￥{{ scope.row.reportAmount }}</template>
+            </el-table-column>
+            <el-table-column prop="content" label="使用说明"/>
+            <el-table-column label="操作" width="200">
+              <template #default="scope">
+                <el-button type="success" size="small" @click.stop="auditFund(scope.row.reportId,1)">通过并公示</el-button>
+                <el-button type="danger" size="small" @click.stop="auditFund(scope.row.reportId,2)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
 
-        <!-- 项目详情弹窗 -->
+        <!-- Tab 3: 举报处理 -->
+        <el-tab-pane name="report">
+          <template #label>
+            <span class="tab-label">举报处理</span>
+            <el-badge v-if="reportPendingCount > 0" :value="reportPendingCount" class="tab-badge" />
+          </template>
+          <el-table :data="reportList" stripe v-loading="loading">
+            <el-table-column label="举报类型" width="100">
+              <template #default="scope">
+                <el-tag :type="scope.row.targetType===1?'danger':'warning'">
+                  {{ scope.row.targetType===1?'举报项目':'举报留言' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="举报内容" min-width="200">
+              <template #default="scope">
+                <div v-if="scope.row.targetType === 1">
+                  项目：{{ scope.row.projectTitle }}
+                </div>
+                <div v-else style="color: #E6A23C;">
+                  留言：“{{ scope.row.commentContent }}”
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="reporterName" label="举报人" width="120" />
+            <el-table-column prop="reason" label="举报理由" width="150" />
+            <el-table-column prop="createTime" label="举报时间" width="160">
+              <template #default="scope">{{ scope.row.createTime.replace('T', ' ') }}</template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="scope">
+                <el-tooltip
+                  v-if="scope.row.status !== 0"
+                  :content="'处理说明：' + (scope.row.handleResult || '无')"
+                  placement="top"
+                >
+                  <el-tag v-if="scope.row.status === 1" type="success">已处理</el-tag>
+                  <el-tag v-if="scope.row.status === 2" type="info">已驳回</el-tag>
+                </el-tooltip>
+                <el-tag v-if="scope.row.status === 0" type="warning">待处理</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="scope">
+                <el-button type="info" size="small" @click.stop="$router.push(`/project/${scope.row.projectId}`)">查看详情</el-button>
+                <el-button
+                  v-if="scope.row.status === 0"
+                  type="primary"
+                  size="small"
+                  @click.stop="openHandleDialog(scope.row)"
+                >去处理</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <!-- Tab 4: 归档管理 -->
+        <el-tab-pane name="archive">
+          <template #label>
+            <span class="tab-label">结项归档</span>
+            <el-badge v-if="finishedList.length > 0" :value="finishedList.length" class="tab-badge" />
+          </template>
+          <el-table :data="finishedList" stripe v-loading="loading">
+            <el-table-column prop="title" label="项目名称" min-width="200" />
+            <el-table-column prop="targetAmount" label="目标金额" width="120">
+              <template #default="scope">￥{{ scope.row.targetAmount }}</template>
+            </el-table-column>
+            <el-table-column prop="currentAmount" label="已筹金额" width="120">
+              <template #default="scope">￥{{ scope.row.currentAmount }}</template>
+            </el-table-column>
+            <el-table-column prop="endTime" label="结束时间" width="180">
+              <template #default="scope">{{ scope.row.endTime ? scope.row.endTime.replace('T', ' ') : '-' }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="300" fixed="right">
+              <template #default="scope">
+                <el-button type="info" size="small" @click.stop="$router.push(`/project/${scope.row.projectId}`)">查看资金公示</el-button>
+                <el-button type="success" size="small" @click.stop="handleArchive(scope.row.projectId)">确认归档</el-button>
+                <el-button type="danger" size="small" @click.stop="handleRejectArchive(scope.row.projectId)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <!-- ==================== 弹窗区（独立在tab外面） ==================== -->
+    <!-- 项目详情弹窗 -->
     <el-dialog v-model="projectDetailVisible" title="项目详情审核" width="60%">
       <div v-if="currentProject">
+        <el-alert
+          v-if="currentProject.rejectReason"
+          title="该项目曾被驳回，请重点核对修改情况"
+          :description="'上次驳回原因：' + currentProject.rejectReason"
+          type="warning"
+          show-icon
+          style="margin-bottom: 20px;"
+          :closable="false"
+        />
         <h2 style="text-align: center;">{{ currentProject.title }}</h2>
         <el-descriptions border :column="2" style="margin-top: 20px;">
           <el-descriptions-item label="项目类型">{{ currentProject.projectType }}</el-descriptions-item>
@@ -38,63 +169,49 @@
             <div style="white-space: pre-wrap; line-height: 1.6;">{{ currentProject.description }}</div>
           </el-descriptions-item>
         </el-descriptions>
-        
+
         <div style="margin-top: 20px; text-align: center;">
-          <!-- 项目封面图 -->
-        <div v-if="currentProject.coverImg" style="margin-top: 20px; text-align: center;">
-          <h4>项目封面图：</h4>
-          <el-image 
-            :src="currentProject.coverImg" 
-            :preview-src-list="[currentProject.coverImg]" 
-            style="max-width: 100%; max-height: 300px; border-radius: 8px;" 
-          />
-          <div v-if="currentProject.proofImg" style="margin-bottom: 20px;">
-            <h4>证明材料：</h4>
-            <el-image 
-              :src="currentProject.proofImg" 
-              :preview-src-list="[currentProject.proofImg]" 
-              style="max-width: 100%; max-height: 300px; border-radius: 8px;" 
+          <div v-if="currentProject.coverImg" style="margin-top: 20px; text-align: center;">
+            <h4>项目封面图：</h4>
+            <el-image
+              :src="currentProject.coverImg"
+              :preview-src-list="[currentProject.coverImg]"
+              style="max-width: 100%; max-height: 300px; border-radius: 8px;"
             />
+            <div v-if="currentProject.proofImg" style="margin-bottom: 20px;">
+              <h4>证明材料：</h4>
+              <el-image
+                :src="currentProject.proofImg"
+                :preview-src-list="[currentProject.proofImg]"
+                style="max-width: 100%; max-height: 300px; border-radius: 8px;"
+              />
+            </div>
           </div>
-          
-        </div>
         </div>
       </div>
     </el-dialog>
 
-        <!--驳回理由弹窗-->
-        <el-dialog v-model="rejectDialogVisible" title="驳回项目" width="400px">
-            <el-input v-model="rejectReason" type="textarea" :row="4" placeholder="请输入驳回原因..." />
-            <template #footer>
-                <el-button @click="rejectDialogVisible=false">取消</el-button>
-                <el-button type="danger" @click="confirmReject">确认驳回</el-button>
-            </template>
-        </el-dialog>
-
-
-
-    <el-card style="margin-top: 20px;">
-        <template #header>
-            <h3>资金报告审核</h3>
-        </template>
-        <el-table :data="fundPendingList" stripe @row-click="handleFundRowClick" style="cursor:pointer">
-            <el-table-column prop="projectId" label="项目ID" width="100" />
-            <el-table-column prop="reportAmount" label="支出金额" width="120">
-                <template #default="scope">￥{{ scope.row.reportAmount }}</template>
-            </el-table-column>
-            <el-table-column prop="content" label="使用说明"/>
-            <el-table-column label="操作" width="200">
-                <template #default="scope">
-                    <el-button type="success" size="small" @click.stop="auditFund(scope.row.reportId,1)">通过并公示</el-button>
-                    <el-button type="danger" size="small" @click.stop="auditFund(scope.row.reportId,2)">驳回</el-button>
-                </template>
-            </el-table-column>
-        </el-table>
-    </el-card>
+    <!--驳回理由弹窗-->
+    <el-dialog v-model="rejectDialogVisible" title="驳回项目" width="400px">
+      <el-input v-model="rejectReason" type="textarea" :rows="4" placeholder="请输入驳回原因..." />
+      <template #footer>
+        <el-button @click="rejectDialogVisible=false">取消</el-button>
+        <el-button type="danger" @click="confirmReject">确认驳回</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 资金报告详情弹窗 -->
     <el-dialog v-model="fundDetailVisible" title="资金使用报告审核" width="50%">
       <div v-if="currentFund">
+        <el-alert 
+          title="财务对账提示" 
+          type="info" 
+          :closable="false" 
+          style="margin-bottom: 15px;"
+        >
+          <p>该项目当前已筹金额为 ￥{{ currentProject?.currentAmount || '未知' }}</p>
+          <p>请结合资金报告列表仔细核对，确保支出总额与筹款总额一致后再进行归档。</p>
+        </el-alert>
         <el-descriptions border :column="1">
           <el-descriptions-item label="项目ID">{{ currentFund.projectId }}</el-descriptions-item>
           <el-descriptions-item label="本次支出金额">￥{{ currentFund.reportAmount }}</el-descriptions-item>
@@ -102,16 +219,15 @@
             <div style="white-space: pre-wrap; line-height: 1.6;">{{ currentFund.content }}</div>
           </el-descriptions-item>
         </el-descriptions>
-        
-          
+
         <div v-if="currentFund.reportImg" style="margin-top: 20px;">
           <h4>相关凭证文件：</h4>
           <div style="margin-top: 10px;">
-            <el-button 
-              v-for="(file, idx) in parseAdminFiles(currentFund.reportImg)" 
-              :key="idx" 
-              type="primary" 
-              plain 
+            <el-button
+              v-for="(file, idx) in parseAdminFiles(currentFund.reportImg)"
+              :key="idx"
+              type="primary"
+              plain
               size="small"
               style="margin-right: 10px; margin-bottom: 10px;"
               @click="previewFile(file.url)"
@@ -122,62 +238,6 @@
         </div>
       </div>
     </el-dialog>
-
-
-
-        <!-- 举报处理面板 -->
-    <el-card style="margin-top: 20px;">
-      <template #header><h3>用户举报处理</h3></template>
-      <el-table :data="reportList" stripe v-loading="loading">
-        <el-table-column label="举报类型" width="100">
-            <template #default="scope">
-                <el-tag: type="scope.row.targetType===1?'danger'.warning">
-                    {{ scope.row.targetType===1?'举报项目':'举报留言' }}
-                </el-tag:>
-            </template>
-        </el-table-column>
-        <el-table-column label="举报内容" min-width="200">
-          <template #default="scope">
-            <div v-if="scope.row.targetType === 1">
-              项目：{{ scope.row.projectTitle }}
-            </div>
-            <div v-else style="color: #E6A23C;">
-              留言：“{{ scope.row.commentContent }}”
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="reporterName" label="举报人" width="120" />
-        <el-table-column prop="reason" label="举报理由" width="150" />
-        <el-table-column prop="createTime" label="举报时间" width="160">
-          <template #default="scope">{{ scope.row.createTime.replace('T', ' ') }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="100">
-          <template #default="scope">
-            <el-tooltip 
-              v-if="scope.row.status !== 0" 
-              :content="'处理说明：' + (scope.row.handleResult || '无')" 
-              placement="top"
-            >
-            <el-tag v-if="scope.row.status === 1" type="success">已处理</el-tag>
-            <el-tag v-if="scope.row.status === 2" type="info">已驳回</el-tag>
-            </el-tooltip>
-            <el-tag v-if="scope.row.status === 0" type="warning">待处理</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="scope">
-            <el-button type="info" size="small" @click.stop="$router.push(`/project/${scope.row.projectId}`)">查看详情</el-button>
-            <el-button 
-              v-if="scope.row.status === 0" 
-              type="primary" 
-              size="small" 
-              @click.stop="openHandleDialog(scope.row)"
-            >去处理</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
 
     <!-- 处理举报弹窗 -->
     <el-dialog v-model="handleDialogVisible" title="处理举报" width="400px">
@@ -197,39 +257,15 @@
         <el-button type="primary" @click="submitHandle">提交处理</el-button>
       </template>
     </el-dialog>
-
-        <!-- 项目归档管理 -->
-    <el-card style="margin-top: 20px;">
-      <template #header><h3>已结束项目归档</h3></template>
-      <el-table :data="finishedList" stripe v-loading="loading">
-        <el-table-column prop="title" label="项目名称" min-width="200" />
-        <el-table-column prop="targetAmount" label="目标金额" width="120">
-          <template #default="scope">￥{{ scope.row.targetAmount }}</template>
-        </el-table-column>
-        <el-table-column prop="currentAmount" label="已筹金额" width="120">
-          <template #default="scope">￥{{ scope.row.currentAmount }}</template>
-        </el-table-column>
-        <el-table-column prop="endTime" label="结束时间" width="180">
-          <template #default="scope">{{ scope.row.endTime ? scope.row.endTime.replace('T', ' ') : '-' }}</template>
-        </el-table-column>
-        
-        <el-table-column label="操作" width="300" fixed="right">
-          <template #default="scope">
-            <el-button type="info" size="small" @click.stop="$router.push(`/project/${scope.row.projectId}`)">查看资金公示</el-button>
-            <el-button type="success" size="small" @click.stop="handleArchive(scope.row.projectId)">确认归档</el-button>
-
-            <el-button type="danger" size="small" @click.stop="handleRejectArchive(scope.row.projectId)">驳回</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
+  </div>
 </template>
 
+
 <script setup>
-import {ref,onMounted,reactive} from 'vue'
+import {ref,onMounted,reactive,computed} from 'vue'
 import request from '@/utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 
 
 
@@ -241,6 +277,21 @@ const currentProjectId=ref(null)
 
 const fundPendingList=ref([])
 
+const activeTab = ref('project')
+const isRefreshing = ref(false)
+
+const refreshAll = () => {
+  isRefreshing.value = true
+  fetchPending()
+  fetchFundPending()
+  fetchReports()
+  fetchFinishedProjects()
+  ElMessage.success('数据已刷新')
+
+  setTimeout(() => {
+    isRefreshing.value = false
+  }, 1000)
+}
 
 // --- 项目详情弹窗变量 ---
 const projectDetailVisible = ref(false)
@@ -416,6 +467,11 @@ const submitHandle = async () => {
   } catch (error) { console.error(error) }
 }
 
+const reportPendingCount = computed(() => {
+  return reportList.value.filter(item => item.status === 0).length
+})
+
+
 // --- 归档管理相关 ---
 const finishedList = ref([])
 
@@ -471,13 +527,55 @@ const handleRejectArchive = (id) => {
 
 // 在 onMounted 里调用
 onMounted(() => {
-  fetchPending()
-  fetchFundPending()
-  fetchReports()
-  fetchFinishedProjects() 
+  refreshAll()
 })
 
 
 
 
 </script>
+
+<style scoped>
+/* 管理员 Tab 页样式 */
+.admin-tabs :deep(.el-tabs__item) {
+  font-size: 15px;
+  padding: 0 20px;
+  height: 50px;
+  line-height: 50px;
+}
+
+/* 选中时的主题色 */
+.admin-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--el-color-primary);
+  font-weight: bold;
+}
+
+/* 底部滑动条颜色 */
+.admin-tabs :deep(.el-tabs__active-bar) {
+  background-color: var(--el-color-primary);
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* 红点徽标的位置微调 */
+.tab-label {
+  margin-right: 8px;
+}
+.tab-badge {
+  transform: translateY(-2px); /* 让红点稍微往上一点，跟文字对齐更好看 */
+}
+.tab-badge :deep(.el-badge__content) {
+  border: none; /* 去红点白边 */
+}
+
+/* 刷新图标旋转动画 */
+.is-spinning {
+  animation: rotate 1s linear infinite;
+}
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+
+</style>

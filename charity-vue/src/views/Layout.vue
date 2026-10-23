@@ -19,7 +19,7 @@
             <div style="width: 100%;">
               <el-input
                 v-model="searchKeyword"
-                placeholder="搜索项目名称、受助人..."
+                placeholder="请输入项目名称"
                 class="search-input"
                 @keyup.enter="handleSearch"
               >
@@ -275,7 +275,8 @@ const handleSearch = () => {
     path: '/',
     query: {
       keyword: keyword || undefined,
-      type: currentType || undefined
+      type: currentType || undefined,
+      status: route.query.status || undefined
     }
   })
 }
@@ -352,12 +353,19 @@ const savedHistory = localStorage.getItem('searchHistory')
 </script>
 
 <style scoped>
-.layout-container { height: 100vh; background-color: #f4f6f8; }
+.layout-container { 
+  display: flex;
+  flex-direction: column; 
+  /* height: 100vh; 
+  overflow: hidden;  */
+  background-color: #f4f6f8;
+}
 .header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  /* 暖黄橙色渐变 */
+  height: 60px;
   background: linear-gradient(135deg, #0f4c3a 0%, #1e6c4f 100%);
   color: white;
   padding: 0 30px;
@@ -413,7 +421,10 @@ const savedHistory = localStorage.getItem('searchHistory')
 }
 
 .main-content {
+  flex: 1;
   padding: 20px 40px;
+  /* overflow-y: auto; */
+  box-sizing: border-box;
 }
 .fade-enter-active,
 .fade-leave-to {
@@ -570,5 +581,19 @@ const savedHistory = localStorage.getItem('searchHistory')
 }
 .preview-footer:hover {
   color: #66b1ff;
+}
+
+/* 搜索按钮 hover 样式：放大镜变主题色 */
+.search-input :deep(.el-input-group__append .el-button:hover) {
+  color: var(--el-color-primary) !important; /* 图标变主题深绿色 */
+  background-color: #f0f9f5; 
+  border-color: var(--el-color-primary); 
+}
+
+/* 确保放大镜图标本身也能正确变色（防止 Element Plus 默认样式覆盖） */
+.search-input :deep(.el-input-group__append .el-button:hover .el-icon) {
+  color: var(--el-color-primary);
+  font-weight: bold; 
+  transition: all 0.3s; 
 }
 </style>

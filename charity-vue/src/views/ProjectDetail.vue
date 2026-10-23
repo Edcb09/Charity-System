@@ -7,7 +7,7 @@
                 <el-col :xs="24" :sm="10" style="overflow: hidden;">
                 <img :src="project.coverImg || 'https://via.placeholder.com/500x300' "
                 @error="(e)=>e.target.src='https://via.placeholder.com/500x300?text=No+Image'"
-                "class="detail-img" />
+                class="detail-img" />
                 </el-col>
 
                 <!--右侧核心信息-->
@@ -72,6 +72,16 @@
             
         </el-card>
 
+                  <!-- 在捐款操作区下方加上 -->
+          <div style="margin-top: 20px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ebeef5;">
+            <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">💖 最新爱心榜</h4>
+            <div v-if="donorList.length === 0" style="font-size: 13px; color: #999;">暂无捐赠记录，快来做第一个吧~</div>
+            <div v-for="(item, index) in donorList" :key="index" style="font-size: 13px; color: #666; margin-bottom: 5px; display: flex; justify-content: space-between;">
+              <span>{{ item.donorName }}</span>
+              <span style="color: #F56C6C; font-weight: bold;">￥{{ item.amount }}</span>
+            </div>
+          </div>
+
         <!--模拟支付弹窗-->
         <el-dialog v-model="showPayDialog" title="支付确认" width="400px" :close-on-click-modal="false">
             <div style="text-align: center;">
@@ -88,7 +98,30 @@
 
     <!--资金公示区域-->
     <el-card style="margin-top: 20px;" v-if="project.status === 3||project.status===5||project.status===6">
+            <!-- 财务汇总面板 -->
+      <div class="fund-summary" v-if="fundSummary">
+        <div class="summary-item">
+          <span class="label">总筹款：</span>
+          <span class="value text-primary">￥{{ fundSummary.totalRaised }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">已公示支出：</span>
+          <span class="value text-danger">￥{{ fundSummary.totalExpended }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="label">当前结余：</span>
+          <span class="value text-warning">￥{{ fundSummary.balance }}</span>
+        </div>
+      </div>
         <el-divider content-position="left">资金使用公示</el-divider>
+        <el-alert 
+        v-if="project.status === 3 && project.currentAmount < project.targetAmount"
+        title="该项目未达到目标金额，已提前结束募捐。筹得的全部善款将直接用于受助人，受助人需按照实际筹集金额进行资金公示。"
+        type="warning"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 20px;"
+      />
         <el-empty v-if="fundReportList.length===0" description="暂无资金公示记录" />
         <div v-for="item in fundReportList" :key="item.reportId" class="fund-item">
             <h4>支出金额：<span style="color:#f56c6c">￥{{ item.reportAmount }}</span></h4>
@@ -308,6 +341,9 @@ const fetchDetail =async()=>{
     try{
         const res=await request.get(`/project/${route.params.id}`)
         project.value=res.data
+        if ([3, 5, 6].includes(project.value.status)) {
+            fetchFundSummary()
+        }
     }catch(error){
         console.error(error)
     }
@@ -361,6 +397,16 @@ const confirmPay = async()=>
         payLoading.value=false
     }
 }
+
+const donorList = ref([])
+
+const fetchDonorList = async () => {
+  try {
+    const res = await request.get(`/donation/list/${route.params.id}`)
+    donorList.value = res.data
+  } catch (error) { console.error(error) }
+}
+
 
 
 //获取留言
@@ -455,6 +501,18 @@ const formatCommentTime=(timeStr)=>{
         return `${year}-${month}-${day}`
     }
 }
+
+
+
+const fundSummary = ref(null)
+
+const fetchFundSummary = async () => {
+  try {
+    const res = await request.get(`/fund-report/summary/${route.params.id}`)
+    fundSummary.value = res.data
+  } catch (error) { console.error(error) }
+}
+
 
 //获取项目的资金公示列表
 const fetchFundReports =async()=>
@@ -555,6 +613,13 @@ const parseFiles = (jsonStr) => {
 
 //资金报告完毕后申请结项
 const handleApplyFinish = () => {
+  if (fundSummary.value && fundSummary.value.balance > 0) {
+    return ElMessageBox.alert(
+      `当前项目仍有 ￥${fundSummary.value.balance} 元资金未公示支出，请先补充资金使用报告，待结余为 0 后方可申请结项。`,
+      '无法申请结项',
+      { confirmButtonText: '我知道了', type: 'warning' }
+    )
+  }
   ElMessageBox.confirm(
     '请确保所有资金使用报告已提交完毕。归档后，项目页面将变为只读状态，不可再操作。确定申请结项吗？', 
     '申请结项', 
@@ -631,17 +696,22 @@ onMounted(()=>{
     fetchDetail()
     fetchComments()//加载留言
     fetchFundReports()
+    fetchDonorList()
+  //   if ([3, 5, 6].includes(project.value.status)) {
+  //   fetchFundSummary()
+  // }
 })
 </script>
 
 <style scoped>
 .detail-container{max-width: 1000px;margin: 20px auto;}
-.detail-img{
-    width: 100%;
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    object-fit: cover;}
+.detail-img {
+  width: 100%;
+  height: 350px; 
+  object-fit: cover; 
+  border-radius: 8px;
+  display: block;
+}
 h1{font-size: 24px;margin-bottom: 10px;}
 .type-tag{color: #909299;font-size: 14px;background: #f4f4f5;display: inline-block;padding: 2px 8px;border-radius: 4px;}
 .amount-box{display: flex;justify-content: space-between;background: #f8f9fa;padding: 15px;border-radius: 8px;margin-bottom: 20px;}
@@ -704,4 +774,29 @@ h1{font-size: 24px;margin-bottom: 10px;}
   font-size: 14px;
   word-break: break-all; /* 防止长文本撑破容器 */
 }
+
+.fund-summary {
+  display: flex;
+  justify-content: space-around;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.summary-item {
+  text-align: center;
+}
+.summary-item .label {
+  font-size: 13px;
+  color: #666;
+  display: block;
+  margin-bottom: 5px;
+}
+.summary-item .value {
+  font-size: 18px;
+  font-weight: bold;
+}
+.text-primary { color: var(--el-color-primary); }
+.text-danger { color: #F56C6C; }
+.text-warning { color: #E6A23C; }
 </style>

@@ -12,26 +12,23 @@
 
                 <el-table-column label="状态" width="120">
                     <template #default="scope">
-                        <el-tag v-if="scope.row.status===0" type="info">草稿</el-tag>
-                        <el-tag v-if="scope.row.status===1" type="warning">待审核</el-tag>
-                        <el-tag v-if="scope.row.status===2" type="success">募捐中</el-tag>
-                        <el-tag v-if="scope.row.status===3" type="info">已结束</el-tag>
-                        <el-tag v-if="scope.row.status===4" type="danger">已驳回</el-tag>
-                        <el-tag v-if="scope.row.status===5" type="info">已归档</el-tag>
-                        <el-tag v-if="scope.row.status === 6" type="warning" effect="dark">待审核归档</el-tag>
+                        <el-tag v-if="scope.row.status===0" type="info" effect="light">草稿</el-tag>
+                        <el-tag v-if="scope.row.status===1" type="warning" effect="light">待审核</el-tag>
+                        <el-tag v-if="scope.row.status===2" type="success" effect="light">募捐中</el-tag>
+                        <el-tag v-if="scope.row.status===3" type="info" effect="light">已结束</el-tag>
+                        <el-tooltip
+                        v-if="scope.row.status===4"
+                        :content="'驳回理由：'+(scope.row.rejectReason||'管理员未填写')"
+                        placement="top">
+                        <el-tag type="danger" style="cursor:pointer;">已驳回</el-tag>
+                        </el-tooltip>
+                        <el-tag v-if="scope.row.status===5" type="info" effect="light">已归档</el-tag>
+                        <el-tag v-if="scope.row.status === 6" type="warning" effect="light">待审核归档</el-tag>
                     </template>
                 </el-table-column>
 
                 <el-table-column label="操作" width="200" fixed="right">
                     <template #default="scope">
-                        <!--只有被驳回的项目才显示查看驳回理由的按钮-->
-                        <el-button
-                        v-if="scope.row.status===4"
-                        type="danger"
-                        size="small"
-                        @click="showRejectReason(scope.row.rejectReason)"
-                        >查看驳回理由
-                    </el-button>
                     <!--继续编辑按钮-->
                     <el-button
                     v-if="scope.row.status===0||scope.row.status===4"
@@ -39,8 +36,12 @@
                     size="small"
                     @click="$router.push(`/create-project/${scope.row.projectId}`)"
                     >继续编辑</el-button>
+
                     <!--可以去详情页-->
-                    <el-button type="primary" size="small" @click="$router.push(`project/${scope.row.projectId}`)">
+                    <el-button 
+                    :type="(scope.row.status === 0 || scope.row.status === 4) ? 'primary' : 'success'"
+                    size="small" 
+                    @click="$router.push(`project/${scope.row.projectId}`)">
                         查看详情
                     </el-button>
                     </template>
@@ -72,13 +73,13 @@ const fetchMyProjects=async()=>{
     }
 }
 
-//弹出驳回理由
-const showRejectReason=(reason)=>{
-    ElMessageBox.alert(reason||'管理员未填写驳回理由','驳回原因',{
-        confirmButtonText:'我知道了',
-        type:'error',
-    })
-}
+// //弹出驳回理由
+// const showRejectReason=(reason)=>{
+//     ElMessageBox.alert(reason||'管理员未填写驳回理由','驳回原因',{
+//         confirmButtonText:'我知道了',
+//         type:'error',
+//     })
+// }
 
 onMounted(()=>{
     fetchMyProjects()

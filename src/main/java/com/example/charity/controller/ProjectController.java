@@ -33,36 +33,51 @@ public class ProjectController {
     @Autowired
     private MessageService messageService;
 
-    //查询项目列表（可分页、搜索、筛选）
+    // 查询项目列表（支持分页、搜索、筛选、Tab状态筛选）
     @GetMapping("/list")
     public Result<Page<Project>> list(
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String projectType
-    ){
-        Page<Project> page=new Page<>(pageNum,pageSize);
-        QueryWrapper<Project> queryWrapper=new QueryWrapper<>();
+            @RequestParam(required = false) String projectType,
+            @RequestParam(required = false) Integer status) { // 👈 新增 status 参数
 
-        //普通用户只能看到“2 募捐中”+"3 募捐结束"+"5 已归档"+"6 归档待审核"的项目
-        queryWrapper.in("status",2,3,5,6);
+        Page<Project> page = new Page<>(pageNum, pageSize);
+        QueryWrapper<Project> queryWrapper = new QueryWrapper<>();
 
-        //模糊搜索标题
-        if(keyword!=null&&!keyword.isEmpty())
-        {
-            queryWrapper.like("title",keyword);
+        // 1. 基础条件：只能看公开的（募捐中2、已结束3、已归档5、待归档6）
+        queryWrapper.in("status", 2, 3, 5, 6);
+
+        // 2. 模糊搜索
+        if (keyword != null && !keyword.isEmpty()) {
+            queryWrapper.and(w -> w.like("title", keyword).or().like("recipient_info", keyword));
+        }
+        // 3. 分类筛选
+        if (projectType != null && !projectType.isEmpty()) {
+            queryWrapper.eq("project_type", projectType);
         }
 
-        //筛选项目类型
-        if (projectType!=null&&!projectType.isEmpty())
-        {
-            queryWrapper.eq("project_type",projectType);
+        // 4. Tab 状态筛选
+        if (status != null) {
+            if (status == 2) {
+                queryWrapper.eq("status", 2); // 募捐中
+            } else if (status == 3) {
+                queryWrapper.in("status", 3, 6); // 已结束（包含状态6待归档）
+            } else if (status == 5) {
+                queryWrapper.eq("status", 5); // 已归档
+            }
+        } else {
+            // 5. 如果选择了“全部”（status 为空），优先把“募捐中(2)”排在最前面
+            // 使用 CASE WHEN 排序，将状态为 2 的权重设为 0，其他的设为 1
+            queryWrapper.last("ORDER BY CASE WHEN status = 2 THEN 0 ELSE 1 END, create_time DESC");
         }
 
-        //创建时间最新排列
-        queryWrapper.orderByDesc("create_time");
+        // 如果指定了状态，正常按时间倒序
+        if (status != null) {
+            queryWrapper.orderByDesc("create_time");
+        }
 
-        projectService.page(page,queryWrapper);
+        projectService.page(page, queryWrapper);
         return Result.success(page);
     }
 
@@ -110,6 +125,7 @@ public class ProjectController {
     }
 
     // 2. 修改项目（用于编辑草稿或驳回后重新提交）
+    // 修改项目
     @PutMapping("/update")
     public Result<String> updateProject(@RequestBody Project project) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -123,14 +139,29 @@ public class ProjectController {
             return Result.error("只有草稿或被驳回的项目才能修改");
         }
 
+        // 拦截：如果原状态是 4（被驳回），强制将新状态设为 1（待审核），不允许存草稿
+        if (oldProject.getStatus() == 4) {
+            project.setStatus(1);
+        }
+
         // 防止前端恶意篡改用户ID、已筹金额和时间
         project.setUserId(userId);
         project.setCurrentAmount(oldProject.getCurrentAmount());
         project.setCreateTime(oldProject.getCreateTime());
 
-        // 如果修改后提交审核，状态会变成1；如果还是存草稿，状态就是0
         projectService.updateById(project);
 
+        if (project.getEndTime() != null) {
+            // 如果提交上来的时间在当前时间之前
+            if (project.getEndTime().isBefore(java.time.LocalDateTime.now())) {
+                return Result.error("项目截止时间不能早于当前时间，请重新选择");
+            }
+        }
+
+        //修改成功提示语
+        if (oldProject.getStatus() == 4) {
+            return Result.success("项目重新提交成功，等待审核");
+        }
         return Result.success(project.getStatus() == 0 ? "草稿更新成功" : "项目重新提交成功，等待审核");
     }
 

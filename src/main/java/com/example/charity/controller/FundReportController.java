@@ -14,7 +14,9 @@ import com.example.charity.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -90,6 +92,41 @@ public class FundReportController {
         return Result.success("审核完成");
     }
 
+    // 获取项目的财务汇总信息（已筹、已支出、结余）
+    @SaIgnore
+    @GetMapping("/summary/{projectId}")
+    public Result<Map<String, Object>> getSummary(@PathVariable Long projectId) {
+        Project project = projectService.getById(projectId);
+        if (project == null) return Result.error("项目不存在");
+        if (project.getStatus() != 3 && project.getStatus() != 5 && project.getStatus() != 6) {
+            return Result.error("项目尚未结束，无法查看资金汇总");
+        }
+
+        // 1. 已筹金额
+        BigDecimal totalRaised = project.getCurrentAmount();
+
+        // 2. 已支出金额（只统计已公示 status=1 的报告金额）
+        QueryWrapper<FundReport> wrapper = new QueryWrapper<>();
+        wrapper.eq("project_id", projectId).eq("status", 1);
+        List<FundReport> reports = fundReportService.list(wrapper);
+
+        BigDecimal totalExpended = BigDecimal.ZERO;
+        for (FundReport r : reports) {
+            if (r.getReportAmount() != null) {
+                totalExpended = totalExpended.add(r.getReportAmount());
+            }
+        }
+
+        // 3. 结余金额
+        BigDecimal balance = totalRaised.subtract(totalExpended);
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("totalRaised", totalRaised);
+        map.put("totalExpended", totalExpended);
+        map.put("balance", balance);
+
+        return Result.success(map);
+    }
 
 
 

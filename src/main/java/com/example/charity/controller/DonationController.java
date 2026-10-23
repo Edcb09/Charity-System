@@ -1,6 +1,7 @@
 package com.example.charity.controller;
 
 
+import cn.dev33.satoken.annotation.SaIgnore;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.charity.common.Result;
@@ -17,10 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -99,6 +97,37 @@ public class DonationController {
         }
 
         return Result.success(page);
+    }
+
+    // 获取某个项目的捐款明细（只展示已支付的，前10条）
+    @SaIgnore
+    @GetMapping("/list/{projectId}")
+    public Result<List<Map<String, Object>>> getDonationList(@PathVariable Long projectId) {
+        QueryWrapper<Donation> wrapper = new QueryWrapper<>();
+        wrapper.eq("project_id", projectId)
+                .eq("pay_status", 1)
+                .orderByDesc("donate_time")
+                .last("LIMIT 10");
+
+        List<Donation> list = donationService.list(wrapper);
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Donation d : list) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("amount", d.getAmount());
+            map.put("donateTime", d.getDonateTime());
+
+            // 👇 核心：如果匿名(1)，就隐藏真实姓名
+            if (d.getIsAnonymous() == 1) {
+                map.put("donorName", "爱心人士");
+            } else {
+                User user = userService.getById(d.getUserId());
+                // 如果用户注销了，防报错
+                map.put("donorName", user != null ? user.getUsername() : "爱心人士");
+            }
+            result.add(map);
+        }
+        return Result.success(result);
     }
 
 }
