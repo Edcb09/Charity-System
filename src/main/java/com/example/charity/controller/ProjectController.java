@@ -40,13 +40,32 @@ public class ProjectController {
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String projectType,
-            @RequestParam(required = false) Integer status) { // 👈 新增 status 参数
+            @RequestParam(required = false) Integer status) { //  status 参数
 
         Page<Project> page = new Page<>(pageNum, pageSize);
         QueryWrapper<Project> queryWrapper = new QueryWrapper<>();
 
-        // 1. 基础条件：只能看公开的（募捐中2、已结束3、已归档5、待归档6）
-        queryWrapper.in("status", 2, 3, 5, 6);
+        // 1. 基础条件：只能看公开的（募捐中2、已结束3、已归档5、待归档6
+        // 修改：新增下架7，admin可看7，其他不可看
+        if (status != null && status == 7) {
+            // 只有管理员才能查已下架的
+            User user = userService.getById(StpUtil.getLoginIdAsLong());
+            if (user == null || user.getRole() != 2) {
+                return Result.error("无权查看该状态");
+            }
+            queryWrapper.eq("status", 7);
+        } else if (status != null) {
+            if (status == 3) queryWrapper.in("status", 3, 6);
+            else queryWrapper.eq("status", status);
+        } else {
+            // 如果没传 status（查全部）
+            User user = userService.getById(StpUtil.getLoginIdAsLong());
+            if (user != null && user.getRole() == 2) {
+                queryWrapper.in("status", 2, 3, 5, 6, 7); // 管理员看 7
+            } else {
+                queryWrapper.in("status", 2, 3, 5, 6);    // 普通用户不看 7
+            }
+        }
 
         // 2. 模糊搜索
         if (keyword != null && !keyword.isEmpty()) {
@@ -235,15 +254,71 @@ public class ProjectController {
         return Result.success("审核操作成功");
     }
 
+    // 获取当前登录用户发起的项目列表（分页）
     @GetMapping("/my")
-    public Result<List<Project>> myProjects()
-    {
-        Long userId=StpUtil.getLoginIdAsLong();
-        QueryWrapper<Project> wrapper=new QueryWrapper<>();
-        wrapper.eq("user_id",userId).orderByDesc("create_time");
-        return Result.success(projectService.list(wrapper));
+    public Result<Page<Project>> myProjects(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        // 创建分页对象
+        Page<Project> page = new Page<>(pageNum, pageSize);
+
+        QueryWrapper<Project> wrapper = new QueryWrapper<>();
+        wrapper.eq("user_id", userId).orderByDesc("create_time");
+
+        // 执行分页查询
+        projectService.page(page, wrapper);
+
+        return Result.success(page);
     }
 
+
+    // 管理员主动下架项目
+    @PostMapping("/admin/offline/{id}")
+    public Result<String> offlineProject(@PathVariable Long id) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User currentUser = userService.getById(userId);
+        if (currentUser == null || currentUser.getRole() != 2) return Result.error("无权限");
+
+        Project project = projectService.getById(id);
+        if (project == null) return Result.error("项目不存在");
+
+        project.setStatus(7); // 改为 7
+        projectService.updateById(project);
+
+        // 发通知
+        Message msg = new Message();
+        msg.setReceiveUserId(project.getUserId());
+        msg.setContent("您的项目【" + project.getTitle() + "】因违反平台规定，已被管理员强制下架。");
+        msg.setType(1);
+        msg.setLinkId(project.getProjectId());
+        msg.setIsRead(0);
+        msg.setCreateTime(LocalDateTime.now());
+        messageService.save(msg);
+
+        return Result.success("项目已强制下架");
+    }
+
+    // 申请人删除自己的项目
+    @DeleteMapping("/{id}")
+    public Result<String> deleteProject(@PathVariable Long id) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        Project project = projectService.getById(id);
+        if (project == null) return Result.error("项目不存在");
+        if (!project.getUserId().equals(userId)) return Result.error("无权操作该项目");
+
+        // 如果是草稿(0) 或 被驳回(4)，直接物理删除
+        if (project.getStatus() == 0 || project.getStatus() == 4) {
+            projectService.removeById(id);
+            return Result.success("项目已彻底删除");
+        } else {
+            // 其他状态（发布过的），执行软删除
+            project.setStatus(7);
+            projectService.updateById(project);
+            return Result.success("项目已删除");
+        }
+    }
 
     // ================= 项目归档相关接口 =================
 

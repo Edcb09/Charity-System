@@ -113,7 +113,7 @@ public class ReportController {
             if (report.getTargetType() == 1) {
                 Project project = projectService.getById(report.getProjectId());
                 if (project != null) {
-                    project.setStatus(4);
+                    project.setStatus(7);
                     project.setRejectReason("违反平台规定被强制下架。处理说明：" + handleResult);
                     projectService.updateById(project);
                     // 发通知给项目申请人

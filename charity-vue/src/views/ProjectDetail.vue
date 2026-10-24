@@ -51,9 +51,19 @@
                         </div>
                     </div>
 
+                    
                     <template v-if="project.status===2">
                     <el-divider />
-                    <div class="action-box">
+
+                    <el-button 
+                    v-if="role === '2' && project.status === 2"
+                    type="danger" 
+                    size="large" 
+                    style="width: 100%; margin-top: 20px;" 
+                    @click="handleAdminOffline"
+                    >强制下架该项目</el-button>
+
+                    <div class="action-box" v-else-if="project.status === 2">
                         <el-input-number v-model="donateAmount" :min="1" :max="999999" label="捐款金额" />
                         <el-checkbox v-model="isAnonymous" style="margin-left: 20px;">匿名捐款</el-checkbox>
                         <el-button type="danger" size="large" style="width: 100%;margin-top: 20px;"@click="handleDonate">
@@ -314,6 +324,7 @@ const fundReportList=ref([])//公示列表
 const showFundReportDialog=ref(false)//提交弹窗
 
 const currentUserId = ref(Number(localStorage.getItem('userId'))) // 存入当前用户ID
+const role = ref(localStorage.getItem('role') || '') // 存入当前用户角色，默认普通用户
 
 const fundReportForm = reactive({
   projectId: null,
@@ -347,6 +358,20 @@ const fetchDetail =async()=>{
     }catch(error){
         console.error(error)
     }
+}
+
+const handleAdminOffline = () => {
+  ElMessageBox.confirm('确定要强制下架该项目吗？此操作不可逆。', '强制下架', {
+    confirmButtonText: '确定下架',
+    cancelButtonText: '取消',
+    type: 'error',
+  }).then(async () => {
+    try {
+      await request.post(`/project/admin/offline/${project.value.projectId}`)
+      ElMessage.success('项目已强制下架')
+      fetchDetail() // 刷新页面
+    } catch (error) { console.error(error) }
+  }).catch(() => {})
 }
 
 //点击捐款

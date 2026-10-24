@@ -26,6 +26,13 @@
       <div class="tab-item" :class="{ active: currentTab === '2' }" @click="changeTab('2')">募捐中</div>
       <div class="tab-item" :class="{ active: currentTab === '3' }" @click="changeTab('3')">已结束</div>
       <div class="tab-item" :class="{ active: currentTab === '5' }" @click="changeTab('5')">已归档</div>
+      <!-- 新增：只有管理员能看到已下架 -->
+      <div 
+        v-if="role === '2'" 
+        class="tab-item" 
+        :class="{ active: currentTab === '7' }" 
+        @click="changeTab('7')"
+      >已下架</div>
     </div>
         
 
@@ -49,7 +56,7 @@
                         <el-tag v-else-if="item.status===3" type="info" effect="plain" size="small">已结束</el-tag>
                         <el-tag v-else-if="item.status===5" type="warning" effect="plain" size="small">已归档</el-tag>
                         <el-tag v-if="item.status === 6" type="warning" effect="plain" size="small">待归档</el-tag>
-
+                        <el-tag v-if="item.status === 7" type="danger" effect="light" size="small">已下架</el-tag>
                         </div>
                         <p style="color:#666;font-size:13px;margin-top: 8px;">类型：{{ item.projectType }}</p>
                     
@@ -85,7 +92,7 @@
 </template>
 
 <script setup>
-import {ref,onMounted,watch} from 'vue'
+import {ref,onMounted,watch,computed} from 'vue'
 import {useRouter,useRoute} from 'vue-router'
 import request from '@/utils/request'
 
@@ -95,6 +102,8 @@ const projectList=ref([])
 const total=ref(0)
 const pageNum=ref(1)
 const pageSize=ref(9)
+
+const role = computed(() => localStorage.getItem('role') || '0')
 
 //计算进度条百分比
 const calculatePercentage=(current,target)=>{
