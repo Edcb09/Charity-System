@@ -4,6 +4,9 @@
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <h3 style="margin: 0;">管理员工作台</h3>
+          <el-button type="success" plain @click="exportExcel" style="margin-right: 10px;">
+              <el-icon><Download /></el-icon> 导出捐款流水
+            </el-button>
           <el-button type="primary" link @click="refreshAll">
             <el-icon style="margin-right: 4px;" :class="{ 'is-spinning': isRefreshing }">
               <Refresh />
@@ -265,7 +268,7 @@
 import {ref,onMounted,reactive,computed} from 'vue'
 import request from '@/utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh,Download } from '@element-plus/icons-vue'
 
 
 
@@ -279,6 +282,10 @@ const fundPendingList=ref([])
 
 const activeTab = ref('project')
 const isRefreshing = ref(false)
+
+const exportExcel = () => {
+  window.open('http://localhost:8080/admin/exportDonations', '_blank')
+}
 
 const refreshAll = () => {
   isRefreshing.value = true

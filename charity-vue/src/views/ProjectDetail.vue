@@ -107,7 +107,7 @@
 
 
     <!--资金公示区域-->
-    <el-card style="margin-top: 20px;" v-if="project.status === 3||project.status===5||project.status===6">
+    <el-card style="margin-top: 20px;" v-if="(project.status === 3||project.status===5||project.status===6)&&project.currentAmount>0">
             <!-- 财务汇总面板 -->
       <div class="fund-summary" v-if="fundSummary">
         <div class="summary-item">
@@ -175,6 +175,10 @@
       show-icon
       style="margin-top:15px"
       />
+    </el-card>
+
+    <el-card style="margin-top: 20px;" v-else-if="(project.status === 3 || project.status === 5) && project.currentAmount == 0">
+      <el-empty description="很遗憾，该项目未能筹集到任何善款，已自动归档结束。感谢您的关注。" />
     </el-card>
 
         <!-- 资金报告提交弹窗 -->
@@ -324,7 +328,7 @@ const fundReportList=ref([])//公示列表
 const showFundReportDialog=ref(false)//提交弹窗
 
 const currentUserId = ref(Number(localStorage.getItem('userId'))) // 存入当前用户ID
-const role = ref(localStorage.getItem('role') || '') // 存入当前用户角色，默认普通用户
+const role = computed(() => localStorage.getItem('role') || '0')
 
 const fundReportForm = reactive({
   projectId: null,
@@ -637,7 +641,10 @@ const parseFiles = (jsonStr) => {
 }
 
 //资金报告完毕后申请结项
-const handleApplyFinish = () => {
+const handleApplyFinish = async () => {
+    if (!fundSummary.value) {
+    await fetchFundSummary()
+  }
   if (fundSummary.value && fundSummary.value.balance > 0) {
     return ElMessageBox.alert(
       `当前项目仍有 ￥${fundSummary.value.balance} 元资金未公示支出，请先补充资金使用报告，待结余为 0 后方可申请结项。`,

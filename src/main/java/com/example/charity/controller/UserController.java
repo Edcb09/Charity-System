@@ -149,6 +149,32 @@ public class UserController {
         return Result.success("个人信息更新成功");
     }
 
+    // 修改密码
+    @PostMapping("/updatePassword")
+    public Result<String> updatePassword(@RequestBody Map<String, String> params) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User user = userService.getById(userId);
+
+        String oldPwd = params.get("oldPassword");
+        String newPwd = params.get("newPassword");
+
+        if (oldPwd == null || newPwd == null || newPwd.trim().isEmpty()) {
+            return Result.error("新密码不能为空");
+        }
+        if (newPwd.length() < 6) {
+            return Result.error("新密码长度不能少于 6 位");
+        }
+        // 校验旧密码
+        if (!passwordEncoder.matches(oldPwd, user.getPassword())) {
+            return Result.error("原密码输入错误");
+        }
+
+        // 更新密码
+        user.setPassword(passwordEncoder.encode(newPwd));
+        userService.updateById(user);
+        return Result.success("密码修改成功，请下次使用新密码登录");
+    }
+
     @GetMapping("/myInfo")
     public Result<User> myInfo() {
         Long userId = StpUtil.getLoginIdAsLong();

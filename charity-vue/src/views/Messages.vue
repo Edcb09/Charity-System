@@ -4,7 +4,11 @@
             <template #header>
                 <div style="display: flex;justify-content: space-between;align-items: center;">
                     <span style="font-size: 18px;font-weight: bold;">消息中心</span>
-                    <el-button type="primary" size="small" @click="readAll" :disabled="messageList.length===0">全部已读</el-button>
+                    <div>
+                    <el-button type="primary" size="small" plain @click="readAll" :disabled="messageList.length === 0">全部已读</el-button>
+                    <!-- 新增：清空消息 -->
+                    <el-button type="danger" size="small" plain @click="clearAll" :disabled="messageList.length === 0" style="margin-left: 10px;">清空消息</el-button>
+                    </div>
                 </div>
             </template>
 
@@ -21,12 +25,24 @@
                 </div>
                 <div class="msg-content">{{ msg.content }}</div>
                 <div class="msg-actions">
-                    <!--如果未读，可以点击标记为已读-->
-                    <el-button v-if="msg.isRead===0" type="text" size="small" @click="markRead(msg.msgId)">标记已读</el-button>
-                    <!--审核通过的消息可以点击跳转项目详情-->
-                    <el-button v-if="msg.type===1&&msg.linkId" type="text" size="small" @click="goToProject(msg)">查看项目</el-button>
+                    <el-button v-if="msg.isRead === 0" type="text" size="small" @click="markRead(msg.msgId)">标为已读</el-button>
+                    <el-button v-if="msg.type === 1 && msg.linkId" type="text" size="small" @click="goToProject(msg)">查看项目</el-button>
+                    
+                    <!-- 删除单条消息 -->
+                    <el-button type="danger" link size="small" style="margin-left: 10px;" @click="deleteMsg(msg.msgId)">删除</el-button>
                 </div>
-            </div>
+                </div> 
+            <!-- 新增：分页组件 -->
+        <div style="display: flex; justify-content: center; margin-top: 20px;" v-if="total > 0">
+          <el-pagination
+            background
+            layout="prev, pager, next"
+            :total="total"
+            :page-size="pageSize"
+            @current-change="handlePageChange"
+          />
+        </div>
+      
         </el-card>
     </div>
 </template>
@@ -35,7 +51,7 @@
 <script setup>
 import {ref,onMounted} from 'vue'
 import request from '@/utils/request'
-import { ElMessage } from 'element-plus';
+import { ElMessage,ElMessageBox } from 'element-plus';
 import {useRouter} from 'vue-router'
 import { useMessageStore } from '@/stores/message';
 
@@ -44,15 +60,30 @@ const router=useRouter()
 
 const messageStore=useMessageStore()
 
-const fetchMessage=async()=>
-{
-    try{
-        const res=await request.get('/message/my')
-        messageList.value=res.data
-    }catch(e)
-    {
-        console.error(e)
-    }
+const total = ref(0)
+const pageNum = ref(1)
+const pageSize = ref(10)
+
+const fetchMessage = async () => {
+  try {
+    const res = await request.get('/message/my', {
+      params: {
+        pageNum: pageNum.value,
+        pageSize: pageSize.value
+      }
+    })
+    // 注意：返回的数据结构变了，records 是当前页的数据，total 是总数
+    messageList.value = res.data.records || [] 
+    total.value = res.data.total || 0
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+//页码切换事件
+const handlePageChange = (val) => {
+  pageNum.value = val
+  fetchMessage()
 }
 
 const markRead=async(id)=>
@@ -99,7 +130,46 @@ const goToProject=async(msg)=>{
     router.push(`/project/${msg.linkId}`)
 }
 
+// 删除单条消息
+const deleteMsg = (id) => {
+  ElMessageBox.confirm('确定要删除这条消息吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(async () => {
+    try {
+      await request.delete(`/message/${id}`)
+      ElMessage.success('删除成功')
+      // 如果当前页只有这1条消息，且不是第一页，自动退回上一页
+      if (messageList.value.length === 1 && pageNum.value > 1) {
+        pageNum.value--
+      }
+      fetchMessages() // 刷新列表
+      messageStore.fetchUnreadCount() // 更新顶部红点
+    } catch (error) {
+      console.error(error)
+    }
+  }).catch(() => {})
+}
 
+// 清空所有消息
+const clearAll = () => {
+  ElMessageBox.confirm('确定要清空所有消息吗？此操作不可恢复！', '清空确认', {
+    confirmButtonText: '确定清空',
+    cancelButtonText: '取消',
+    type: 'error',
+  }).then(async () => {
+    try {
+      await request.delete('/message/clear')
+      ElMessage.success('所有消息已清空')
+      pageNum.value = 1 // 回到第一页
+      fetchMessages()
+      messageStore.fetchUnreadCount()
+    } catch (error) {
+      console.error(error)
+    }
+  }).catch(() => {})
+}
 
 
 </script>

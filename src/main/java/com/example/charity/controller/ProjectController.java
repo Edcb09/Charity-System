@@ -32,6 +32,8 @@ public class ProjectController {
     private UserService userService;
     @Autowired
     private MessageService messageService;
+    @Autowired
+    private com.example.charity.service.FundReportService fundReportService;
 
     // 查询项目列表（支持分页、搜索、筛选、Tab状态筛选）
     @GetMapping("/list")
@@ -331,6 +333,31 @@ public class ProjectController {
         if (project == null) return Result.error("项目不存在");
         if (!project.getUserId().equals(userId)) return Result.error("您无权操作该项目");
         if (project.getStatus() != 3) return Result.error("当前状态无法申请结项");
+
+        // 新增：计算结余金额
+        java.math.BigDecimal totalRaised = project.getCurrentAmount();
+        java.math.BigDecimal totalExpended = java.math.BigDecimal.ZERO;
+
+        // 查询所有已公示（status=1）的资金报告
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.example.charity.entity.FundReport> wrapper =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        wrapper.eq("project_id", id).eq("status", 1);
+        java.util.List<com.example.charity.entity.FundReport> reports = fundReportService.list(wrapper);
+
+        for (com.example.charity.entity.FundReport r : reports) {
+            if (r.getReportAmount() != null) {
+                totalExpended = totalExpended.add(r.getReportAmount());
+            }
+        }
+
+        // 计算结余 = 已筹金额 - 已支出金额
+        java.math.BigDecimal balance = totalRaised.subtract(totalExpended);
+
+        // 如果结余大于 0，拦截！
+        if (balance.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            return Result.error("无法申请结项：当前项目仍有 ￥" + balance + " 元资金未公示支出，请先补充资金报告并等待审核通过。");
+        }
+
 
         // 状态从 3 变为 6
         project.setStatus(6);

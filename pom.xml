@@ -63,6 +63,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>3.3.2</version>
+        </dependency>
+
 
         <!-- MyBatis-Plus 针对 Spring Boot 4 的专用启动器 -->
         <dependency>

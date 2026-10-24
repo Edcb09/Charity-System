@@ -85,6 +85,17 @@
             <el-icon><Plus /></el-icon> 发起募捐
           </el-button>
 
+          <el-button
+          v-if="role === '2'"
+          type="warning"
+          size="small"
+          round
+          style="margin-right: 15px; font-weight: bold;"
+          @click="$router.push('/dashboard')"
+          >
+          <el-icon style="margin-right: 4px;"><DataLine /></el-icon> 数据大屏
+          </el-button>
+
             <!----- 消息红点与悬浮小窗 ----->
           <el-popover 
             v-if="role!=='2'"
@@ -189,7 +200,7 @@ import { useRoute,useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useMessageStore } from '@/stores/message'
 import { useUserStore } from '@/stores/user' 
-import { Platform, Plus, ArrowDown, User, Money, List, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { Platform, Plus, ArrowDown, User, Money, List, Setting, SwitchButton, DataLine  } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import Login from '@/views/Login.vue' 
 import { Search, Delete } from '@element-plus/icons-vue'

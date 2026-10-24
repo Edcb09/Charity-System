@@ -48,7 +48,7 @@
 
                     <!-- 删除按钮：如果是草稿、驳回、或已下架，显示删除 -->
                     <el-button 
-                    v-if="[0, 4, 7].includes(scope.row.status)"
+                    v-if="[0, 4, 7].includes(scope.row.status)|| (scope.row.status === 5 && scope.row.currentAmount == 0)"
                     type="danger" 
                     size="small" 
                     @click="handleDeleteProject(scope.row.projectId)"

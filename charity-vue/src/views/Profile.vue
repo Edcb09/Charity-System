@@ -42,6 +42,24 @@
           <el-button type="primary" @click="saveInfo">保存修改</el-button>
         </el-form-item>
       </el-form>
+
+            <!-- 新增：修改密码区域 -->
+      <el-divider content-position="left">修改密码</el-divider>
+      
+      <el-form :model="pwdForm" label-width="80px" style="margin-top: 20px;">
+        <el-form-item label="原密码" required>
+          <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入原密码" />
+        </el-form-item>
+        <el-form-item label="新密码" required>
+          <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="请输入新密码(至少6位)" />
+        </el-form-item>
+        <el-form-item label="确认密码" required>
+          <el-input v-model="pwdForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="warning" @click="submitPassword">修改密码</el-button>
+        </el-form-item>
+      </el-form>
     </el-card>
   </div>
 </template>
@@ -51,6 +69,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue' // 需要安装：npm install @element-plus/icons-vue
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'
+import {useRouter} from 'vue-router'
+
+const router=useRouter()
 
 const form = reactive({
   username: '',
@@ -114,6 +135,41 @@ const saveInfo = async () => {
     localStorage.setItem('username', form.username)
     // 刷新一下页面
     window.location.reload() 
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+// 密码表单
+const pwdForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+// 提交修改密码
+const submitPassword = async () => {
+  if (!pwdForm.oldPassword || !pwdForm.newPassword || !pwdForm.confirmPassword) {
+    return ElMessage.warning('请填写完整密码信息')
+  }
+  if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+    return ElMessage.warning('两次输入的新密码不一致')
+  }
+  
+  try {
+    const res = await request.post('/user/updatePassword', pwdForm)
+    ElMessage.success(res.msg)
+    
+    // 修改成功后，强制退出登录，让用户重新登录
+    ElMessageBox.confirm('密码已修改，请重新登录', '提示', {
+      showCancelButton: false,
+      confirmButtonText: '去登录',
+      type: 'success'
+    }).then(() => {
+      localStorage.clear()
+      router.push('/login')
+      window.location.reload()
+    })
   } catch (error) {
     console.error(error)
   }
