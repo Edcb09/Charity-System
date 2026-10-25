@@ -148,21 +148,53 @@ const initCharts = () => {
     }]
   })
 
-  // 3. 柱状图 (横向)
+
+    // 3. 柱状图 (横向)
   barChart = echarts.init(barChartRef.value)
   barChart.setOption({
+    // 修改 1：删掉原来的 title 组件，不再占用左上角
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-    xAxis: { type: 'value', name: '已筹金额 (元)' },
-    yAxis: { type: 'category', data: (dashboardData.value.top5?.titles || []).reverse() },
+    
+    // 修改 2：调整 grid 底部边距，给左下角的文字留出空间
+    grid: { left: '3%', right: '10%', bottom: '10%', top: '5%', containLabel: true },
+    
+    // 修改 3：把单位名称交给 xAxis 的 name 属性，并强制靠左 (nameLocation: 'start')
+    // 调整底部边距，给下方的文字留出空间
+    grid: { left: '3%', right: '10%', bottom: '15%', top: '5%', containLabel: true },
+    
+    xAxis: { 
+      type: 'value',
+      name: '已筹金额(元)',
+      nameLocation: 'start', // 放在最左侧起点
+      nameGap: 60,          
+      nameTextStyle: {
+        color: '#909399',
+        fontSize: 12,
+        align: 'left',       // 文字左对齐，会向右伸展
+        verticalAlign: 'top',
+        padding:[8,0,0,-60]
+      }
+    },
+    
+    yAxis: { 
+      type: 'category', 
+      data: (dashboardData.value.top5?.titles || []).reverse() 
+    },
+    
     series: [{
       name: '已筹金额',
       type: 'bar',
       barWidth: '50%',
       data: (dashboardData.value.top5?.amounts || []).reverse(),
       itemStyle: {
-        color: '#F2994A', // 暖橙色
+        color: '#F2994A', 
         borderRadius: [0, 8, 8, 0]
+      },
+      label: {
+        show: true,
+        position: 'right',
+        color: '#666',
+        formatter: '{c}'
       }
     }]
   })

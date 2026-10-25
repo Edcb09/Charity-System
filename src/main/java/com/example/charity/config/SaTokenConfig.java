@@ -19,7 +19,8 @@ public class SaTokenConfig implements WebMvcConfigurer{
                         "/user/register",
                         "/project/list",
                         "/test/**",
-                        "/error"
+                        "/error",
+                        "/images/**" // 静态资源（项目封面、头像等）必须放行，否则游客会拿到 401 JSON
                 );
     }
 }

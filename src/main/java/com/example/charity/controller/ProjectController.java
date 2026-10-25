@@ -36,6 +36,7 @@ public class ProjectController {
     private com.example.charity.service.FundReportService fundReportService;
 
     // 查询项目列表（支持分页、搜索、筛选、Tab状态筛选）
+    @SaIgnore
     @GetMapping("/list")
     public Result<Page<Project>> list(
             @RequestParam(defaultValue = "1") Integer pageNum,
@@ -61,7 +62,9 @@ public class ProjectController {
             else queryWrapper.eq("status", status);
         } else {
             // 如果没传 status（查全部）
-            User user = userService.getById(StpUtil.getLoginIdAsLong());
+            // 游客也可能访问（该方法已 @SaIgnore），这里不能用 getLoginIdAsLong()，否则未登录会抛 NotLoginException 返回 401
+            Object loginId = StpUtil.getLoginIdDefaultNull();
+            User user = loginId == null ? null : userService.getById(Long.valueOf(loginId.toString()));
             if (user != null && user.getRole() == 2) {
                 queryWrapper.in("status", 2, 3, 5, 6, 7); // 管理员看 7
             } else {

@@ -1,0 +1,41 @@
+server:
+  port: 8080 # 后端启动端口
+
+spring:
+  application:
+    name: charity
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 容器网络内用服务名 mysql 访问；库名需与 docker-compose 的 MYSQL_DATABASE 一致
+    url: jdbc:mysql://mysql:3306/charity_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    # 注意：数据卷首次初始化时用的 root 密码是 root123，之后改 compose 不会覆盖已有卷
+    username: root
+    password: root123
+  data:
+    redis:
+      host: redis
+      port: 6379
+      database: 0
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 控制台打印 SQL 语句，方便调试
+    map-underscore-to-camel-case: true # 开启驼峰命名转换（user_name -> userName）
+  global-config:
+    db-config:
+      id-type: auto # 主键默认使用数据库自增
+
+
+sa-token:
+  token-name: satoken
+  timeout: 2592000
+  is-current: true
+  is-share: true
+
+file:
+  upload-path: /app/uploads/

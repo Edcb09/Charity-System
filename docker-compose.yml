@@ -1,0 +1,79 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: charity-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: charity_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 仅在数据卷首次创建（为空）时自动导入表结构和初始数据，已有数据不会重复执行
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # 等 MySQL 真正能连上（而不是容器刚启动）才放行 backend，避免启动时报 Connection refused
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: always
+    networks:
+      - charity-net
+
+  backend:
+    build: .
+    container_name: charity-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+    networks:
+      - charity-net
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    volumes:
+      - ./uploads:/app/uploads
+
+  frontend:
+    build: ./charity-vue
+    container_name: charity-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - charity-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: charity-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    # 开启 AOF 持久化 + 挂数据卷：否则容器一重建（docker compose up --build / down）登录态全丢，
+    # 前端 localStorage 还留着旧 token，就会出现"看着已登录却处处 401 未登录"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - charity-net
+
+networks:
+  charity-net: 
+    driver: bridge 
+
+volumes:
+  mysql-data:
+  redis-data:

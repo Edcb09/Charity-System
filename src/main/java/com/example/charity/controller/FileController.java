@@ -37,8 +37,10 @@ public class FileController {
             File dest = new File(uploadPath + newFileName);
             file.transferTo(dest);
 
-            // 4. 返回可访问的 URL (注意这里的 /images/ 和 WebMvcConfig 对应)
-            String url = "http://localhost:8080/images/" + newFileName;
+            // 4. 返回相对路径（注意 /images/ 与 WebMvcConfig 的映射一致）
+            //    不要写死 http://localhost:8080，否则换域名/IP 部署后图片全废；
+            //    前端同源请求 /images/**，由 nginx 反代到后端（开发环境由 vite proxy 转发）
+            String url = "/images/" + newFileName;
             return Result.success(url);
 
         } catch (IOException e) {

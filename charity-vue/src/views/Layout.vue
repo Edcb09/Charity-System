@@ -189,12 +189,13 @@
       </router-view>
     </el-main>
 
-
     <Login />
+    <SmartAssistant />
   </el-container>
 </template>
 
 <script setup>
+import SmartAssistant from '@/components/SmartAssistant.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute,useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'

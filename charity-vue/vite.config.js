@@ -22,6 +22,11 @@ export default defineConfig({
         target:'http://localhost:8080',//转发给后端
         changeOrigin:true,
         rewrite:path=>path.replace(/^\/api/,'')//去掉/api前缀
+      },
+      // 上传的图片/文件（后端存的是相对路径 /images/xxx.jpg，这里转发给后端静态目录）
+      '/images':{
+        target:'http://localhost:8080',
+        changeOrigin:true
       }
     }
   }
