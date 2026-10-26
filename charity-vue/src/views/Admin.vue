@@ -283,8 +283,38 @@ const fundPendingList=ref([])
 const activeTab = ref('project')
 const isRefreshing = ref(false)
 
-const exportExcel = () => {
-  window.open('http://localhost:8080/admin/exportDonations', '_blank')
+const exportExcel = async () => {
+  try {
+    // 走 axios（相对路径 /api）：本地由 Vite 代理转发，Docker 里由 nginx 转发，
+    // 并且自动带上 satoken 请求头，两种运行方式都能用
+    const blob = await request.get('/admin/exportDonations', {
+      responseType: 'blob',
+      timeout: 30000
+    })
+
+    // 后端鉴权失败/报错时返回的是 JSON（401/403/500）或空文件，这里转成提示，不下载坏文件
+    if (!blob || blob.size === 0) {
+      ElMessage.error('导出失败：服务端未返回文件，请查看后端日志')
+      return
+    }
+    if (blob.type && blob.type.includes('json')) {
+      const json = JSON.parse(await blob.text())
+      ElMessage.error(json.msg || '导出失败，请重新登录')
+      return
+    }
+
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = '爱心捐款流水.xlsx'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error('导出失败：' + (e.message || '请稍后重试'))
+  }
 }
 
 const refreshAll = () => {

@@ -28,6 +28,10 @@ let last401Time=0//同一时刻并发多个请求时，只提示一次
 //响应拦截器：统一处理错误
 service.interceptors.response.use(
     response=>{
+        //文件下载（responseType='blob'）不是 JSON 包装结果，直接把 Blob 交给调用方处理
+        if(response.config.responseType==='blob'){
+            return response.data
+        }
         const res=response.data
         if(res.code !==200)
         {

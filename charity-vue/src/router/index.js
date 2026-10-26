@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import Login from '@/views/Login.vue'
 import Layout from '@/views/Layout.vue'
 import ProjectList from '@/views/ProjectList.vue'
@@ -53,16 +54,17 @@ router.beforeEach((to,from)=>{
   }
 
   //角色权限路由拦截
-  if(to.path==='/create-project'&&role!=='1'){
-    return '/';
+  // 用路由 name 判断，避免 /create-project/12 这类带参路径漏判
+  const roleRoutes = {
+    CreateProject: '1', // 发起/编辑项目：仅申请人
+    MyProjects: '1',    // 我的项目：仅申请人
+    MyDonations: '0',   // 我的捐款：仅捐赠人
+    Admin: '2',         // 管理员工作台：仅管理员
+    Dashboard: '2'      // 数据驾驶舱：仅管理员
   }
-  if(to.path==='/my-projects'&&role!=='1'){
-    return '/'
-  }
-  if(to.path==='/my-donations'&&role!=='0'){
-    return '/'
-  }
-  if(to.path==='/admin'&&role!=='2'){
+  const needRole = roleRoutes[to.name]
+  if(needRole !== undefined && role !== needRole){
+    ElMessage.warning('无权限访问该页面')
     return '/'
   }
 
