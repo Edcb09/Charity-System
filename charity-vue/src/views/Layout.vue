@@ -371,6 +371,9 @@ const savedHistory = localStorage.getItem('searchHistory')
   /* height: 100vh; 
   overflow: hidden;  */
   background-color: #f4f6f8;
+  /* 至少铺满一屏：否则内容不足一屏的页面（审核页、个人中心、捐款记录等）
+     灰色背景只到内容底部，下方会露出浏览器默认的白色 */
+  min-height: 100vh;
 }
 .header {
   flex-shrink: 0;

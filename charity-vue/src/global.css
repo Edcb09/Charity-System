@@ -1,3 +1,12 @@
+/* 去掉浏览器默认边距，并让最外层容器至少铺满一屏，
+   避免内容不足一屏的页面底部出现白条（背景色与 Layout 保持一致） */
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #f4f6f8;
+}
+
 :root {
   /* 覆盖 Element Plus 的主色调为深绿色 */
   --el-color-primary: #1e6c4f;
