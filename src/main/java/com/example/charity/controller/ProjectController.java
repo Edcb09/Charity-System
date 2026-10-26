@@ -6,6 +6,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaIgnore;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.charity.common.Result;
 import com.example.charity.entity.Message;
@@ -231,15 +232,24 @@ public class ProjectController {
 
         Project project=projectService.getById(projectId);
         if (project==null)return Result.error("项目不存在");
-
-        project.setStatus(status);
-        project.setAuditTime(java.time.LocalDateTime.now());
-        if(status==4)
+        if(project.getStatus()!=1)
         {
-            project.setRejectReason(rejectReason);
+            return Result.error("该项目已被处理，请勿重复审核");
         }
 
-        projectService.updateById(project);
+        // 并发防护（乐观锁思想）：UPDATE 时带上 status=1 的条件，
+        // 只有把状态从"待审核"改掉的那一个请求能成功；后到的管理员更新行数为 0，直接返回失败，
+        // 避免两个管理员同时审核导致"驳回+通过"都生效、还各发一条站内信
+        LambdaUpdateWrapper<Project> auditWrapper=new LambdaUpdateWrapper<>();
+        auditWrapper.eq(Project::getProjectId,projectId)
+                .eq(Project::getStatus,1)
+                .set(Project::getStatus,status)
+                .set(Project::getAuditTime,LocalDateTime.now())
+                .set(status==4,Project::getRejectReason,rejectReason);
+        if(!projectService.update(auditWrapper))
+        {
+            return Result.error("该项目已被其他管理员处理，请刷新列表");
+        }
 
         //发送审核结果通知
         Message msg=new Message();
@@ -401,8 +411,16 @@ public class ProjectController {
         if (project == null || project.getStatus() != 6) {
             return Result.error("项目状态错误，无法归档");
         }
-        project.setStatus(5);
-        projectService.updateById(project);
+        // 并发防护（乐观锁思想）：只有 status 仍为 6（结项待审核）时才能归档，
+        // 后到的管理员更新不到任何行，直接失败，避免重复归档
+        LambdaUpdateWrapper<Project> archiveWrapper=new LambdaUpdateWrapper<>();
+        archiveWrapper.eq(Project::getProjectId,id)
+                .eq(Project::getStatus,6)
+                .set(Project::getStatus,5);
+        if(!projectService.update(archiveWrapper))
+        {
+            return Result.error("该项目已被其他管理员处理，请刷新列表");
+        }
         // 发通知给申请人...
         return Result.success("项目已成功归档");
     }
@@ -420,9 +438,17 @@ public class ProjectController {
         Project project = projectService.getById(projectId);
         if (project == null || project.getStatus() != 6) return Result.error("状态错误");
 
-        project.setStatus(3); // 退回已结束
-        project.setRejectReason("归档申请被驳回：" + rejectReason); // 借用这个字段存驳回理由
-        projectService.updateById(project);
+        // 并发防护（乐观锁思想）：只有 status 仍为 6（结项待审核）时才能驳回，
+        // 后到的管理员更新不到任何行，直接失败，避免与"同意归档"互相覆盖
+        LambdaUpdateWrapper<Project> rejectWrapper=new LambdaUpdateWrapper<>();
+        rejectWrapper.eq(Project::getProjectId,projectId)
+                .eq(Project::getStatus,6)
+                .set(Project::getStatus,3)// 退回已结束
+                .set(Project::getRejectReason,"归档申请被驳回：" + rejectReason);// 借用这个字段存驳回理由
+        if(!projectService.update(rejectWrapper))
+        {
+            return Result.error("该项目已被其他管理员处理，请刷新列表");
+        }
 
         // 发通知给申请人
         Message msg = new Message();

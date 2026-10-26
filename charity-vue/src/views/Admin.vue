@@ -367,8 +367,9 @@ const handleAudit=async(id,status)=>
         fetchPending()//刷新列表
         setTimeout(() => window.location.reload(), 1000) 
     }catch(e){
+        // 失败多半是"已被其他管理员处理"，刷新列表把已被抢先处理的项目移除
         console.error(e)
-        ElMessage('审核失败')
+        fetchPending()
     }
 }
 
@@ -394,7 +395,10 @@ const confirmReject=async()=>
         rejectDialogVisible.value=false
         fetchPending()
         setTimeout(() => window.location.reload(), 1000) 
-    }catch(e){console.error(e)}
+    }catch(e){
+        console.error(e)
+        fetchPending()//同上：被其他管理员抢先处理时刷新列表
+    }
 }
 
 //获取待审核资金报告列表

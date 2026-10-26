@@ -4,6 +4,7 @@ package com.example.charity.controller;
 import cn.dev33.satoken.annotation.SaIgnore;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.example.charity.common.Result;
 import com.example.charity.entity.FundReport;
 import com.example.charity.entity.Project;
@@ -83,11 +84,20 @@ public class FundReportController {
 
         FundReport report=fundReportService.getById(reportId);
         if(report==null) return Result.error("报告不存在");
+        if(report.getStatus()!=0) return Result.error("该报告已审核过，请勿重复处理");
 
-        report.setStatus(status);
-        report.setAuditTime(LocalDateTime.now());
-        if(status==2)report.setRejectReason(rejectReason);
-        fundReportService.updateById(report);
+        // 并发防护（乐观锁思想）：只有 status 仍为 0（待审核）时才能更新，
+        // 后到的管理员更新不到任何行，直接失败，避免重复公示/重复驳回
+        LambdaUpdateWrapper<FundReport> auditWrapper=new LambdaUpdateWrapper<>();
+        auditWrapper.eq(FundReport::getReportId,reportId)
+                .eq(FundReport::getStatus,0)
+                .set(FundReport::getStatus,status)
+                .set(FundReport::getAuditTime,LocalDateTime.now())
+                .set(status==2,FundReport::getRejectReason,rejectReason);
+        if(!fundReportService.update(auditWrapper))
+        {
+            return Result.error("该报告已被其他管理员处理，请刷新列表");
+        }
 
         return Result.success("审核完成");
     }

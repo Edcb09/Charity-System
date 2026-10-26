@@ -93,9 +93,10 @@ public class AdminController {
             e.setIsAnonymous(d.getIsAnonymous() == 1 ? "匿名" : "实名");
             e.setDonateTime(d.getDonateTime());
 
-            // 查项目名
+            // 查项目名 + 项目状态（下架项目不隐藏，用状态列标出来，方便财务核对）
             Project p = projectService.getById(d.getProjectId());
             e.setProjectTitle(p != null ? p.getTitle() : "已删除项目");
+            e.setProjectStatus(p == null ? "项目已删除" : statusToText(p.getStatus()));
 
             // 查用户名
             User u = userService.getById(d.getUserId());
@@ -114,5 +115,21 @@ public class AdminController {
         EasyExcel.write(response.getOutputStream(), DonationExportExcel.class)
                 .sheet("捐款流水")
                 .doWrite(exportList);
+    }
+
+    // 项目状态码转中文（0草稿 1待审核 2募捐中 3已结束 4已驳回 5已归档 6结项待审核 7已下架）
+    private String statusToText(Integer status) {
+        if (status == null) return "未知";
+        switch (status) {
+            case 0: return "草稿";
+            case 1: return "待审核";
+            case 2: return "募捐中";
+            case 3: return "已结束";
+            case 4: return "已驳回";
+            case 5: return "已归档";
+            case 6: return "结项待审核";
+            case 7: return "已下架";
+            default: return "未知";
+        }
     }
 }

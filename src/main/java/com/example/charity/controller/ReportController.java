@@ -3,6 +3,7 @@ package com.example.charity.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.example.charity.common.Result;
 import com.example.charity.entity.*;
 import com.example.charity.service.*;
@@ -100,19 +101,28 @@ public class ReportController {
 
         Report report = reportService.getById(reportId);
         if (report == null) return Result.error("举报记录不存在");
+        if (report.getStatus() != 0) return Result.error("该举报已处理过，请勿重复处理");
 
         // 1. 更新举报记录
-        report.setStatus(status);
-        report.setAdminId(adminId);
-        report.setHandleResult(handleResult);
-        reportService.updateById(report);
+        // 并发防护（乐观锁思想）：只有 status 仍为 0（待处理）时才能更新，
+        // 后到的管理员更新不到任何行，直接失败，避免重复下架/重复屏蔽
+        LambdaUpdateWrapper<Report> handleWrapper = new LambdaUpdateWrapper<>();
+        handleWrapper.eq(Report::getReportId, reportId)
+                .eq(Report::getStatus, 0)
+                .set(Report::getStatus, status)
+                .set(Report::getAdminId, adminId)
+                .set(Report::getHandleResult, handleResult);
+        if (!reportService.update(handleWrapper)) {
+            return Result.error("该举报已被其他管理员处理，请刷新列表");
+        }
 
         // 2. 如果举报属实，强制下架项目 (新增逻辑)
         if (status == 1) {
             // 场景1：处理项目举报（下架项目）
             if (report.getTargetType() == 1) {
                 Project project = projectService.getById(report.getProjectId());
-                if (project != null) {
+                // 已经是 7（已下架）就不再重复下架、重复发通知
+                if (project != null && project.getStatus() != 7) {
                     project.setStatus(7);
                     project.setRejectReason("违反平台规定被强制下架。处理说明：" + handleResult);
                     projectService.updateById(project);

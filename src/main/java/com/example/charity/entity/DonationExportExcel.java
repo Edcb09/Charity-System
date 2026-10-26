@@ -20,6 +20,10 @@ public class DonationExportExcel {
     @ColumnWidth(25)
     private String projectTitle;
 
+    @ExcelProperty("项目状态")
+    @ColumnWidth(12)
+    private String projectStatus;
+
     @ExcelProperty("捐款金额(元)")
     @ColumnWidth(15)
     private BigDecimal amount;
