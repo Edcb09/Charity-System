@@ -7,6 +7,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_DATABASE: charity_db
+      # 不设时区 MySQL 默认 UTC，NOW()/CURRENT_TIMESTAMP 会比北京时间慢 8 小时
+      TZ: Asia/Shanghai
     volumes:
       - mysql-data:/var/lib/mysql
       # 仅在数据卷首次创建（为空）时自动导入表结构和初始数据，已有数据不会重复执行
@@ -37,6 +39,8 @@ services:
       - charity-net
     environment:
       - SPRING_PROFILES_ACTIVE=prod
+      # 不设时区 JVM 默认 UTC，LocalDateTime.now() 会比北京时间慢 8 小时
+      - TZ=Asia/Shanghai
     volumes:
       - ./uploads:/app/uploads
 

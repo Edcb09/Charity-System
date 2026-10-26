@@ -16,5 +16,9 @@ RUN echo 'deb http://deb.debian.org/debian bullseye main' > /etc/apt/sources.lis
     && apt-get install -y --no-install-recommends libfreetype6 fontconfig fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
+# 时区：容器默认 UTC，LocalDateTime.now() 会比北京时间慢 8 小时。
+# TZ 影响系统时间，user.timezone 直接用 JDK 自带时区库兜底（不依赖镜像里有没有 tzdata）
+ENV TZ=Asia/Shanghai
+
 # 容器启动时执行的命令
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Shanghai", "-jar", "app.jar"]
