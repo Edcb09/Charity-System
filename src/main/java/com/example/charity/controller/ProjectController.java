@@ -299,14 +299,30 @@ public class ProjectController {
         Project project = projectService.getById(id);
         if (project == null) return Result.error("项目不存在");
 
-        project.setStatus(7); // 改为 7
-        projectService.updateById(project);
+        // 只有"已发布但未归档"的项目才能强制下架：
+        // 0草稿/1待审核/4已驳回 尚未发布（走审核驳回或申请人删除即可）
+        // 5已归档 是合规终态（下架会抹掉历史资金公示，并影响统计与导出流水）
+        int st = project.getStatus();
+        if (st == 7) return Result.error("该项目已处于下架状态");
+        if (st != 2 && st != 3 && st != 6) {
+            return Result.error("当前状态不可强制下架（仅募捐中 / 已结束 / 结项待审核可下架）");
+        }
+
+        // 并发防护（乐观锁思想）：只有状态仍属于可下架范围时才更新成功，
+        // 避免两个管理员同时下架、或下架与归档审核并发导致重复下发站内信
+        LambdaUpdateWrapper<Project> offlineWrapper = new LambdaUpdateWrapper<>();
+        offlineWrapper.eq(Project::getProjectId, id)
+                .in(Project::getStatus, 2, 3, 6)
+                .set(Project::getStatus, 7);
+        if (!projectService.update(offlineWrapper)) {
+            return Result.error("该项目状态已被其他操作变更，请刷新后重试");
+        }
 
         // 发通知
         Message msg = new Message();
         msg.setReceiveUserId(project.getUserId());
         msg.setContent("您的项目【" + project.getTitle() + "】因违反平台规定，已被管理员强制下架。");
-        msg.setType(1);
+        msg.setType(5); // 5=系统通知（管理员处置，不是审核流程）
         msg.setLinkId(project.getProjectId());
         msg.setIsRead(0);
         msg.setCreateTime(LocalDateTime.now());
@@ -323,16 +339,24 @@ public class ProjectController {
         if (project == null) return Result.error("项目不存在");
         if (!project.getUserId().equals(userId)) return Result.error("无权操作该项目");
 
-        // 如果是草稿(0) 或 被驳回(4)，直接物理删除
-        if (project.getStatus() == 0 || project.getStatus() == 4) {
-            projectService.removeById(id);
-            return Result.success("项目已彻底删除");
-        } else {
-            // 其他状态（发布过的），执行软删除
-            project.setStatus(7);
-            projectService.updateById(project);
-            return Result.success("项目已删除");
+        // 允许彻底删除的范围：草稿(0)、已驳回(4)、已下架(7)、0元已归档(5)
+        // 其余状态（1待审核 / 2募捐中 / 3已结束 / 6结项待审核 / 有筹款的已归档）
+        // 已进入业务流程，申请人不能自行删除，否则等于变相拥有了管理员的下架能力
+        int st = project.getStatus();
+        boolean canDelete = st == 0 || st == 4 || st == 7
+                || (st == 5 && project.getCurrentAmount() != null
+                    && project.getCurrentAmount().compareTo(BigDecimal.ZERO) == 0);
+        if (!canDelete) {
+            return Result.error("项目已进入流程，无法自行删除；如需下架请联系管理员");
         }
+
+        try {
+            projectService.removeById(id);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 有外键关联记录（捐款 / 留言 / 资金报告 / 举报）时删不掉，给个明确提示而不是 500
+            return Result.error("该项目存在关联记录（捐款、留言或资金报告），无法彻底删除");
+        }
+        return Result.success("项目已彻底删除");
     }
 
     // ================= 项目归档相关接口 =================

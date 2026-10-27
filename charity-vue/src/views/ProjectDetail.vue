@@ -55,15 +55,7 @@
                     <template v-if="project.status===2">
                     <el-divider />
 
-                    <el-button 
-                    v-if="role === '2' && project.status === 2"
-                    type="danger" 
-                    size="large" 
-                    style="width: 100%; margin-top: 20px;" 
-                    @click="handleAdminOffline"
-                    >强制下架该项目</el-button>
-
-                    <div class="action-box" v-else-if="project.status === 2">
+                    <div class="action-box" v-if="role !== '2'">
                         <el-input-number v-model="donateAmount" :min="1" :max="999999" label="捐款金额" />
                         <el-checkbox v-model="isAnonymous" style="margin-left: 20px;">匿名捐款</el-checkbox>
                         <el-button type="danger" size="large" style="width: 100%;margin-top: 20px;"@click="handleDonate">
@@ -71,6 +63,17 @@
                         </el-button>
                     </div>
                 </template>
+
+                    <!-- 管理员强制下架：募捐中(2) / 已结束(3) / 结项待审核(6) 均可下架。
+                         已归档(5) 是合规终态，下架会抹掉历史资金公示，故不提供 -->
+                    <el-button
+                    v-if="role === '2' && [2,3,6].includes(project.status)"
+                    type="danger"
+                    size="large"
+                    plain
+                    style="width: 100%; margin-top: 20px;"
+                    @click="handleAdminOffline"
+                    >强制下架该项目</el-button>
                 </el-col>
             </el-row>
 
@@ -259,7 +262,7 @@
               <div class="comment-actions">
                 <span class="time">{{ formatCommentTime(item.createTime) }}</span>
 
-                <!-- 删除自己留言的按钮 👇 -->
+                <!-- 删除自己留言的按钮 -->
                 <el-button 
                   v-if="item.userId === currentUserId" 
                   type="primary" 
@@ -285,7 +288,7 @@
     </el-card>
 
     <!-- 举报弹窗 -->
-    <el-dialog v-model="showViolationDialog" title="举报违规项目" width="400px">
+    <el-dialog v-model="showViolationDialog" title="举报违规留言" width="400px">
       <el-form label-width="80px">
         <el-form-item label="举报理由" required>
           <el-select v-model="violationForm.reason" placeholder="请选择或输入理由" style="width: 100%;" filterable allow-create>
@@ -365,7 +368,11 @@ const fetchDetail =async()=>{
 }
 
 const handleAdminOffline = () => {
-  ElMessageBox.confirm('确定要强制下架该项目吗？此操作不可逆。', '强制下架', {
+  // 已结束/待归档的项目下架时，提醒管理员：历史流水保留，已筹资金不做自动处理
+  const tip = project.value.status === 2
+    ? '确定要强制下架该项目吗？此操作不可逆。'
+    : '确定要强制下架该项目吗？该项目已结束，下架后仍保留捐款流水与资金公示记录，已筹资金不做自动处理。'
+  ElMessageBox.confirm(tip, '强制下架', {
     confirmButtonText: '确定下架',
     cancelButtonText: '取消',
     type: 'error',

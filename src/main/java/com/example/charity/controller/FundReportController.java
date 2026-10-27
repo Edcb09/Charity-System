@@ -7,9 +7,11 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.example.charity.common.Result;
 import com.example.charity.entity.FundReport;
+import com.example.charity.entity.Message;
 import com.example.charity.entity.Project;
 import com.example.charity.entity.User;
 import com.example.charity.service.FundReportService;
+import com.example.charity.service.MessageService;
 import com.example.charity.service.ProjectService;
 import com.example.charity.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,7 @@ public class FundReportController {
     @Autowired private FundReportService fundReportService;
     @Autowired private ProjectService projectService;
     @Autowired private UserService userService;
+    @Autowired private MessageService messageService;
 
     //1.申请人提交资金报告（需登录）
     @PostMapping("/add")
@@ -38,6 +41,29 @@ public class FundReportController {
         if(project==null) return Result.error("项目不存在");
         if(!project.getUserId().equals(userId))return Result.error("你不是该项目的申请人！");
         if(project.getStatus()!=3)return Result.error("只有已结束的项目才能提交资金报告");
+
+        // 金额校验：保证"结余不能为负"
+        // 已占用金额 = 已公示(1) + 待审核(0) 的报告金额之和（待审核的也纳入计算）
+        BigDecimal amount=report.getReportAmount();
+        if(amount==null||amount.compareTo(BigDecimal.ZERO)<=0)
+        {
+            return Result.error("支出金额必须大于 0");
+        }
+        BigDecimal totalRaised=project.getCurrentAmount()==null?BigDecimal.ZERO:project.getCurrentAmount();
+        BigDecimal usedAmount=BigDecimal.ZERO;
+        List<FundReport> usedList=fundReportService.list(new QueryWrapper<FundReport>()
+                .eq("project_id",report.getProjectId())
+                .in("status",0,1));
+        for(FundReport r:usedList)
+        {
+            if(r.getReportAmount()!=null) usedAmount=usedAmount.add(r.getReportAmount());
+        }
+        BigDecimal remain=totalRaised.subtract(usedAmount);
+        if(amount.compareTo(remain)>0)
+        {
+            return Result.error("本次支出金额不能超过项目剩余结余（结余不能为负）：已筹 ￥"
+                    + totalRaised + "，已申报/已公示 ￥" + usedAmount + "，剩余可申报 ￥" + remain);
+        }
 
         report.setStatus(0);//待审核
         report.setCreateTime(LocalDateTime.now());
@@ -99,7 +125,49 @@ public class FundReportController {
             return Result.error("该报告已被其他管理员处理，请刷新列表");
         }
 
+        // 通知项目申请人审核结果（type=3 资金公示），否则申请人不知道报告被驳回、也不清楚为何不能结项
+        Project project=projectService.getById(report.getProjectId());
+        if(project!=null)
+        {
+            Message msg=new Message();
+            msg.setReceiveUserId(project.getUserId());
+            msg.setType(3); // 3=资金公示
+            msg.setLinkId(report.getProjectId());
+            msg.setIsRead(0);
+            msg.setCreateTime(LocalDateTime.now());
+            if(status==1)
+            {
+                // 公示通过后，如果结余已经为 0，顺带提示可以去申请结项归档
+                BigDecimal remain=calcRemain(project);
+                msg.setContent("您提交的项目【"+project.getTitle()+"】资金使用报告（￥"+report.getReportAmount()+"）已审核通过并公示。"
+                        +(remain.compareTo(BigDecimal.ZERO)<=0
+                            ? "当前结余已为 0，您可以申请结项归档了。"
+                            : "当前仍有 ￥"+remain+" 元未公示，请继续提交资金报告。"));
+            }
+            else
+            {
+                msg.setContent("您提交的项目【"+project.getTitle()+"】资金使用报告（￥"+report.getReportAmount()+"）被驳回。理由："
+                        +(rejectReason==null||rejectReason.isEmpty()?"未填写":rejectReason)+"，请修改后重新提交。");
+            }
+            messageService.save(msg);
+        }
+
         return Result.success("审核完成");
+    }
+
+    // 计算项目结余：已筹金额 - 已公示(status=1)的报告金额之和（与结项校验口径一致）
+    private BigDecimal calcRemain(Project project)
+    {
+        BigDecimal totalRaised=project.getCurrentAmount()==null?BigDecimal.ZERO:project.getCurrentAmount();
+        BigDecimal used=BigDecimal.ZERO;
+        List<FundReport> passed=fundReportService.list(new QueryWrapper<FundReport>()
+                .eq("project_id",project.getProjectId())
+                .eq("status",1));
+        for(FundReport r:passed)
+        {
+            if(r.getReportAmount()!=null) used=used.add(r.getReportAmount());
+        }
+        return totalRaised.subtract(used);
     }
 
     // 获取项目的财务汇总信息（已筹、已支出、结余）

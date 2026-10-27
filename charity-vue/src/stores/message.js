@@ -15,11 +15,14 @@ export const useMessageStore = defineStore('message', () => {
       unreadCount.value = countRes.data
 
       // 2. 如果有未读消息，拉取列表并截取前 5 条
+      // 注意：/message/my 返回的是分页对象，消息数组在 data.records 里，
+      // 直接对 data 调 filter 会报 "filter is not a function"，导致悬浮窗永远显示"暂无未读消息"
       if (unreadCount.value > 0) {
-        const listRes = await request.get('/message/my')
-        // 过滤出未读，取前5条
-        const unreadMsgs = listRes.data.filter(m => m.isRead === 0)
-        previewList.value = unreadMsgs.slice(0, 5)
+        const listRes = await request.get('/message/my', {
+          params: { pageNum: 1, pageSize: 50 } // 多取一些，避免未读消息被已读的挤到第二页而漏显示
+        })
+        const records = listRes?.data?.records || []
+        previewList.value = records.filter(m => m.isRead === 0).slice(0, 5)
       } else {
         previewList.value = []
       }

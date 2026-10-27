@@ -20,6 +20,7 @@
                     <el-tag v-else-if="msg.type === 2" type="warning" size="small">捐款通知</el-tag>
                     <el-tag v-else-if="msg.type === 3" type="primary" size="small">资金公示</el-tag>
                     <el-tag v-else-if="msg.type === 4" type="danger" size="small">举报处理</el-tag>
+                    <el-tag v-else-if="msg.type === 5" type="info" size="small">系统通知</el-tag>
                     <el-tag v-else type="info" size="small">系统通知</el-tag>
                     <span class="time">{{ msg.createTime?msg.createTime.replace('T',' '):'' }}</span>
                 </div>

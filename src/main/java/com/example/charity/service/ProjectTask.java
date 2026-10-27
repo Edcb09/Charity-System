@@ -22,7 +22,7 @@ public class ProjectTask {
     @Autowired
     private MessageService messageService;
 
-    // 每天凌晨 2 点执行一次 (cron 表达式)
+    // 每分钟执行一次 
     @Scheduled(fixedRate = 60000)
     public void autoEndExpiredProjects() {
         System.out.println("开始执行定时任务：扫描超时未达标的项目...");
@@ -43,7 +43,7 @@ public class ProjectTask {
                 Message msg = new com.example.charity.entity.Message();
                 msg.setReceiveUserId(project.getUserId());
                 msg.setContent("很遗憾，您发起的项目【" + project.getTitle() + "】因到期未筹集到资金，已自动归档。您可以重新准备材料再次发起。");
-                msg.setType(1);
+                msg.setType(5); // 5=系统通知（定时任务的自动处理，不是人工审核）
                 msg.setLinkId(project.getProjectId());
                 msg.setIsRead(0);
                 msg.setCreateTime(java.time.LocalDateTime.now());
@@ -53,7 +53,7 @@ public class ProjectTask {
                 com.example.charity.entity.Message msg = new com.example.charity.entity.Message();
                 msg.setReceiveUserId(project.getUserId());
                 msg.setContent("您的项目【" + project.getTitle() + "】募捐时间已截止，已停止募捐。当前共筹得 ￥" + project.getCurrentAmount() + "。请及时提交资金使用报告。");
-                msg.setType(1);
+                msg.setType(5); // 5=系统通知（到期自动结束，不是人工审核）
                 msg.setLinkId(project.getProjectId());
                 msg.setIsRead(0);
                 msg.setCreateTime(java.time.LocalDateTime.now());

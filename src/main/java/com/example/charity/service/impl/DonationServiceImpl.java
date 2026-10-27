@@ -97,7 +97,7 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
             Message msg = new com.example.charity.entity.Message();
             msg.setReceiveUserId(project.getUserId()); // 发给项目申请人
             msg.setContent("好消息！您发起的项目【" + project.getTitle() + "】已达到目标筹款金额，募捐已提前结束。请及时提交资金使用报告。");
-            msg.setType(1); // 1代表系统/审核通知
+            msg.setType(5); // 5=系统通知（达标自动结束，不是人工审核）
             msg.setLinkId(project.getProjectId());
             msg.setIsRead(0);
             msg.setCreateTime(java.time.LocalDateTime.now());

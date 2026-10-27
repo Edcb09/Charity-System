@@ -103,6 +103,7 @@
             :width="320"
             trigger="hover"
             popper-class="msg-popover"
+            @show="messageStore.fetchUnreadCount()"
           >
             <!-- 悬浮时显示的内容 -->
             <template #reference>
@@ -246,7 +247,7 @@ const getMsgType = (type) => {
     2: { label: '捐款', color: 'warning' },
     3: { label: '资金', color: 'primary' },
     4: { label: '举报', color: 'danger' },
-    5: { label: '违规', color: 'info' }
+    5: { label: '系统', color: 'info' }
   }
   return map[type] || { label: '系统', color: 'info' }
 }

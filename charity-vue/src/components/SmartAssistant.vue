@@ -1,12 +1,19 @@
 <template>
   <div class="assistant-container">
-    <!-- 右下角悬浮按钮 -->
-    <div class="float-btn" @click="toggleChat" v-show="!isOpen">
+    <!-- 悬浮按钮：可拖动，松手后吸附到最近的左右边缘并隐藏一部分，hover 再滑出来 -->
+    <div
+      class="float-btn"
+      :class="{ 'is-dragging': isDragging, 'dock-left': dock === 'left', 'dock-right': dock === 'right' }"
+      :style="btnStyle"
+      v-show="!isOpen"
+      @pointerdown="onDragStart"
+      @click="onClickBtn"
+    >
       <el-icon :size="24"><Service /></el-icon>
     </div>
 
-    <!-- 聊天窗口 -->
-    <el-card class="chat-window" v-show="isOpen" shadow="always">
+    <!-- 聊天窗口：跟悬浮球停在同一侧 -->
+    <el-card class="chat-window" :class="{ 'dock-left': dock === 'left' }" v-show="isOpen" shadow="always">
       <template #header>
         <div class="chat-header">
           <span>💬 系统问答助手</span>
@@ -45,13 +52,98 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { Service, Close } from '@element-plus/icons-vue'
 
 const isOpen = ref(false)
 const inputText = ref('')
 const chatHistory = ref([])
 const chatBodyRef = ref(null)
+
+// ================= 悬浮球：拖动 + 靠边半隐藏 =================
+const BTN_SIZE = 60   // 悬浮球直径
+const HIDE_PX = 22    // 靠边时藏进屏幕外的宽度
+const STORE_KEY = 'assistantBtnPos'
+
+const dock = ref('right')        // 'left' | 'right'
+const isDragging = ref(false)
+const hasMoved = ref(false)      // 本次按下是否发生过拖动
+const pos = ref({ x: 0, y: 0 })  // 悬浮球左上角坐标
+
+const clampY = (y) => Math.min(Math.max(y, 80), window.innerHeight - BTN_SIZE - 20)
+
+// 根据当前吸附方向计算坐标
+const applyDock = () => {
+  pos.value.x = dock.value === 'left' ? -HIDE_PX : window.innerWidth - BTN_SIZE + HIDE_PX
+  pos.value.y = clampY(pos.value.y)
+}
+
+const btnStyle = computed(() => ({
+  left: pos.value.x + 'px',
+  top: pos.value.y + 'px',
+  // 拖动过程中去掉过渡，跟手；松手吸附时才有动画
+  transition: isDragging.value ? 'none' : 'left .3s ease, top .3s ease, transform .25s ease'
+}))
+
+let startPointer = { x: 0, y: 0 }
+let startPos = { x: 0, y: 0 }
+
+const onDragStart = (e) => {
+  if (e.button != null && e.button !== 0) return   // 只响应鼠标左键
+  isDragging.value = true
+  hasMoved.value = false
+  startPointer = { x: e.clientX, y: e.clientY }
+  startPos = { x: pos.value.x, y: pos.value.y }
+  window.addEventListener('pointermove', onDragMove)
+  window.addEventListener('pointerup', onDragEnd)
+  window.addEventListener('pointercancel', onDragEnd)
+}
+
+const onDragMove = (e) => {
+  const dx = e.clientX - startPointer.x
+  const dy = e.clientY - startPointer.y
+  if (Math.abs(dx) > 4 || Math.abs(dy) > 4) hasMoved.value = true
+  pos.value.x = startPos.x + dx
+  pos.value.y = startPos.y + dy
+}
+
+const onDragEnd = () => {
+  isDragging.value = false
+  window.removeEventListener('pointermove', onDragMove)
+  window.removeEventListener('pointerup', onDragEnd)
+  window.removeEventListener('pointercancel', onDragEnd)
+
+  // 松手后吸附到离球心最近的那一侧
+  dock.value = pos.value.x + BTN_SIZE / 2 < window.innerWidth / 2 ? 'left' : 'right'
+  applyDock()
+  localStorage.setItem(STORE_KEY, JSON.stringify({ dock: dock.value, y: pos.value.y }))
+}
+
+// 拖动过就不算点击，避免松手时误开聊天窗
+const onClickBtn = () => {
+  if (hasMoved.value) { hasMoved.value = false; return }
+  toggleChat()
+}
+
+const onResize = () => applyDock()
+
+onMounted(() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null')
+    if (saved && saved.dock) {
+      dock.value = saved.dock
+      pos.value.y = saved.y ?? (window.innerHeight - 40 - BTN_SIZE)
+    } else {
+      pos.value.y = window.innerHeight - 40 - BTN_SIZE
+    }
+  } catch (e) {
+    pos.value.y = window.innerHeight - 40 - BTN_SIZE
+  }
+  applyDock()
+  window.addEventListener('resize', onResize)
+})
+
+onUnmounted(() => window.removeEventListener('resize', onResize))
 
 // 切换窗口显示/隐藏
 const toggleChat = () => {
@@ -156,25 +248,37 @@ const sendMessage = () => {
 </script>
 
 <style scoped>
-/* 悬浮按钮与容器 */
-.assistant-container { position: fixed; bottom: 40px; right: 40px; z-index: 9999; }
+/* 容器铺满全屏但不拦截点击，只有里面的悬浮球和聊天窗可点 */
+.assistant-container { position: fixed; inset: 0; z-index: 9999; pointer-events: none; }
+
+/* 悬浮按钮（可拖动） */
 .float-btn {
+  position: fixed;
   width: 60px; height: 60px;
   background: linear-gradient(135deg, #0f4c3a 0%, #1e6c4f 100%);
   border-radius: 50%;
   display: flex; justify-content: center; align-items: center;
-  color: white; cursor: pointer;
+  color: white; cursor: grab;
+  pointer-events: auto;
+  touch-action: none; /* 手机端拖动时不要把页面一起滚动 */
   box-shadow: 0 4px 15px rgba(30, 108, 79, 0.4);
-  transition: transform 0.3s;
+  transition: left 0.3s ease, top 0.3s ease, transform 0.25s ease;
 }
+.float-btn.is-dragging { cursor: grabbing; box-shadow: 0 8px 22px rgba(30, 108, 79, 0.55); }
 .float-btn:hover { transform: scale(1.1); }
+/* 靠边时鼠标移上去再滑出来一点，和主流站点的悬浮客服一致 */
+.float-btn.dock-left:hover { transform: translateX(16px) scale(1.08); }
+.float-btn.dock-right:hover { transform: translateX(-16px) scale(1.08); }
 
 /* 聊天窗口 */
 .chat-window {
+  position: fixed; bottom: 40px; right: 40px;
   width: 360px; height: 520px;
   display: flex; flex-direction: column;
   border-radius: 12px; overflow: hidden;
+  pointer-events: auto;
 }
+.chat-window.dock-left { left: 40px; right: auto; }
 :deep(.el-card__header) { padding: 12px 15px; background: #f4f6f8; }
 :deep(.el-card__body) { padding: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
