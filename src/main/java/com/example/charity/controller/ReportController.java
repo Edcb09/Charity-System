@@ -130,7 +130,7 @@ public class ReportController {
                     Message authorMsg = new Message();
                     authorMsg.setReceiveUserId(project.getUserId()); // 项目作者
                     authorMsg.setContent("您的项目因违反平台规定已被管理员下架。处理说明：" + handleResult);
-                    authorMsg.setType(5);
+                    authorMsg.setType(4); // 4=举报处理（该下架由举报属实触发，属举报流程产物）
                     authorMsg.setLinkId(report.getProjectId());
                     authorMsg.setIsRead(0);
                     authorMsg.setCreateTime(LocalDateTime.now());
@@ -147,7 +147,7 @@ public class ReportController {
                     Message authorMsg = new Message();
                     authorMsg.setReceiveUserId(comment.getUserId()); // 留言作者
                     authorMsg.setContent("您的留言因违反平台规定已被管理员屏蔽。处理说明：" + handleResult);
-                    authorMsg.setType(5); // 可以定义 5 为系统警告/违规通知
+                    authorMsg.setType(4); // 4=举报处理（该屏蔽由举报属实触发）
                     authorMsg.setLinkId(report.getProjectId());
                     authorMsg.setIsRead(0);
                     authorMsg.setCreateTime(LocalDateTime.now());

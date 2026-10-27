@@ -400,18 +400,8 @@ public class ProjectController {
         project.setStatus(6);
         projectService.updateById(project);
 
-        // 发消息给管理员...
-        List<User> admins = userService.list(new QueryWrapper<User>().eq("role", 2));
-        for (User admin : admins) {
-            Message msg = new Message();
-            msg.setReceiveUserId(admin.getUserId());
-            msg.setContent("申请人申请将项目【" + project.getTitle() + "】结项归档，请前往后台审核。");
-            msg.setType(1);
-            msg.setLinkId(project.getProjectId());
-            msg.setIsRead(0);
-            msg.setCreateTime(java.time.LocalDateTime.now());
-            messageService.save(msg);
-        }
+        // 无需给管理员发站内信：管理员的消息中心入口在前端已隐藏（Layout.vue v-if="role!=='2'"），
+        // 待办提醒由导航栏"后台审核"红点承担（/admin/pendingCount 会实时统计 status=6 的待归档项目）
         return Result.success("结项申请已提交，等待管理员审核");
     }
 
