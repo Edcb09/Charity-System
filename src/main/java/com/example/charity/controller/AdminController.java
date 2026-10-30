@@ -68,13 +68,13 @@ public class AdminController {
         return Result.success(map);
     }
 
+    //导出流水
     @GetMapping("/exportDonations")
     public void exportDonations(HttpServletResponse response) throws IOException {
-        // 1. 权限校验（自己加一下，只能管理员访问）
+        // 1. 权限校验
         Long userId = StpUtil.getLoginIdAsLong();
         User currentUser = userService.getById(userId);
         if (currentUser == null || currentUser.getRole() != 2) {
-            // 这里简单返回 403 即可，为了演示直接返回空
             response.setStatus(403);
             return;
         }

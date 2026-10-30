@@ -28,7 +28,7 @@ public class UserController {
 
     private final BCryptPasswordEncoder passwordEncoder=new BCryptPasswordEncoder();
 
-    //1.注册接口
+    //注册接口
     @PostMapping("/register")
     public Result<String> register(@RequestBody User user)
     {
@@ -175,6 +175,7 @@ public class UserController {
         return Result.success("密码修改成功，请下次使用新密码登录");
     }
 
+    //个人中心
     @GetMapping("/myInfo")
     public Result<User> myInfo() {
         Long userId = StpUtil.getLoginIdAsLong();

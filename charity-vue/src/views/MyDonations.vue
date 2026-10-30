@@ -35,7 +35,7 @@
         style="margin-top:20px;justify-content: center;"
         />
 
-            <!-- 👇 隐藏的证书模板，利用绝对定位移出屏幕外，保证截图清晰但不影响页面显示 -->
+            <!-- 隐藏的证书模板，利用绝对定位移出屏幕外，保证截图清晰但不影响页面显示 -->
     <div style="position: fixed; left: -9999px; top: 0;">
       <div id="certificate-node" class="certificate-box">
         <div class="cert-title">捐 赠 证 书</div>

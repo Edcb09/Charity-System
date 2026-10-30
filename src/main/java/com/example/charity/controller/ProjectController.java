@@ -150,7 +150,6 @@ public class ProjectController {
     }
 
     // 2. 修改项目（用于编辑草稿或驳回后重新提交）
-    // 修改项目
     @PutMapping("/update")
     public Result<String> updateProject(@RequestBody Project project) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -341,7 +340,7 @@ public class ProjectController {
 
         // 允许彻底删除的范围：草稿(0)、已驳回(4)、已下架(7)、0元已归档(5)
         // 其余状态（1待审核 / 2募捐中 / 3已结束 / 6结项待审核 / 有筹款的已归档）
-        // 已进入业务流程，申请人不能自行删除，否则等于变相拥有了管理员的下架能力
+        // 已进入业务流程，申请人不能自行删除
         int st = project.getStatus();
         boolean canDelete = st == 0 || st == 4 || st == 7
                 || (st == 5 && project.getCurrentAmount() != null

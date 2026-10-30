@@ -286,7 +286,7 @@ const isRefreshing = ref(false)
 const exportExcel = async () => {
   try {
     // 走 axios（相对路径 /api）：本地由 Vite 代理转发，Docker 里由 nginx 转发，
-    // 并且自动带上 satoken 请求头，两种运行方式都能用
+    // 并且自动带上 satoken 请求头
     const blob = await request.get('/admin/exportDonations', {
       responseType: 'blob',
       timeout: 30000

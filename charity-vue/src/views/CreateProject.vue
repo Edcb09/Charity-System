@@ -200,7 +200,7 @@ const uploadImage = async (options, type) => {
   }
 }
 
-// 禁用设置过去
+// 禁用设置过去的日期
 const disabledDate = (time) => {
   // time 是一个 Date 对象
   return time.getTime() < Date.now()
